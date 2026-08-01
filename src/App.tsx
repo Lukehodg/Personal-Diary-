@@ -69,6 +69,9 @@ export default function App() {
             <Workouts
               workouts={workouts}
               onAdd={(w) => setWorkouts((prev) => [...prev, w])}
+              onImport={(imported) =>
+                setWorkouts((prev) => [...prev, ...imported])
+              }
               onDelete={(id) =>
                 setWorkouts((prev) => prev.filter((w) => w.id !== id))
               }

@@ -1,4 +1,13 @@
-import { Activity, BookOpen, Dumbbell, Flame, Timer } from "lucide-react"
+import {
+  Activity,
+  BookOpen,
+  CalendarArrowDown,
+  Dumbbell,
+  Flame,
+  Heart,
+  Route,
+  Timer,
+} from "lucide-react"
 
 import {
   Card,
@@ -8,7 +17,9 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { downloadICS } from "@/lib/calendar"
 import { formatDate, todayISO } from "@/lib/store"
 import { MOODS, type DiaryEntry, type Workout } from "@/lib/types"
 
@@ -53,6 +64,14 @@ export function Dashboard({ workouts, entries }: DashboardProps) {
   const weekStart = startOfWeekISO()
   const thisWeek = workouts.filter((w) => w.date >= weekStart)
   const minutesThisWeek = thisWeek.reduce((sum, w) => sum + w.durationMin, 0)
+  const caloriesThisWeek = thisWeek.reduce(
+    (sum, w) => sum + (w.stats?.calories ?? 0),
+    0
+  )
+  const distanceThisWeek = thisWeek.reduce(
+    (sum, w) => sum + (w.stats?.distanceKm ?? 0),
+    0
+  )
   const streak = currentStreak(workouts)
   const monthStart = todayISO().slice(0, 8) + "01"
   const entriesThisMonth = entries.filter((e) => e.date >= monthStart).length
@@ -94,13 +113,30 @@ export function Dashboard({ workouts, entries }: DashboardProps) {
       sub: "Consecutive workout days",
       icon: Flame,
     },
-    {
-      title: "Diary entries",
-      value: String(entriesThisMonth),
-      sub: "This month",
-      icon: BookOpen,
-    },
+    caloriesThisWeek > 0
+      ? {
+          title: "Calories burned",
+          value: caloriesThisWeek.toLocaleString(),
+          sub:
+            distanceThisWeek > 0
+              ? `${Math.round(distanceThisWeek * 10) / 10} km covered`
+              : "This week",
+          icon: Heart,
+        }
+      : {
+          title: "Diary entries",
+          value: String(entriesThisMonth),
+          sub: "This month",
+          icon: BookOpen,
+        },
   ]
+
+  const breakdown = [
+    ...new Set(thisWeek.map((w) => w.type)),
+  ].map((type) => ({
+    type,
+    count: thisWeek.filter((w) => w.type === type).length,
+  }))
 
   return (
     <div className="space-y-4">
@@ -129,22 +165,61 @@ export function Dashboard({ workouts, entries }: DashboardProps) {
               {thisWeek.length} of {WEEKLY_GOAL} workouts completed
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Progress value={goalPct} />
-            <p className="text-sm text-muted-foreground">
-              {thisWeek.length >= WEEKLY_GOAL
-                ? "Goal hit — nice work! 🎉"
-                : `${WEEKLY_GOAL - thisWeek.length} more to hit your goal.`}
-            </p>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Progress value={goalPct} />
+              <p className="text-sm text-muted-foreground">
+                {thisWeek.length >= WEEKLY_GOAL
+                  ? "Goal hit — nice work! 🎉"
+                  : `${WEEKLY_GOAL - thisWeek.length} more to hit your goal.`}
+              </p>
+            </div>
+
+            {breakdown.length > 0 && (
+              <div className="space-y-2 border-t pt-4">
+                <p className="text-xs font-medium text-muted-foreground">
+                  This week's mix
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {breakdown.map((b) => (
+                    <Badge
+                      key={b.type}
+                      variant="secondary"
+                      className="capitalize"
+                    >
+                      {b.type} × {b.count}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t pt-4 text-sm">
+              <span className="flex items-center gap-2 text-muted-foreground">
+                <BookOpen className="h-4 w-4" />
+                Diary entries this month
+              </span>
+              <span className="font-medium">{entriesThisMonth}</span>
+            </div>
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle>Recent activity</CardTitle>
-            <CardDescription>
-              Your latest workouts and diary entries
-            </CardDescription>
+          <CardHeader className="flex-row items-start justify-between space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle>Recent activity</CardTitle>
+              <CardDescription>
+                Your latest workouts and diary entries
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => downloadICS(workouts)}
+              disabled={workouts.length === 0}
+            >
+              <CalendarArrowDown /> Calendar
+            </Button>
           </CardHeader>
           <CardContent>
             {recent.length === 0 ? (
@@ -178,8 +253,22 @@ export function Dashboard({ workouts, entries }: DashboardProps) {
                           ? item.workout.name
                           : item.entry.title || "Diary entry"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="flex items-center gap-2 text-xs text-muted-foreground">
                         {formatDate(item.date)}
+                        {item.kind === "workout" &&
+                          item.workout.stats?.distanceKm !== undefined && (
+                            <span className="flex items-center gap-1">
+                              <Route className="h-3 w-3" />
+                              {item.workout.stats.distanceKm} km
+                            </span>
+                          )}
+                        {item.kind === "workout" &&
+                          item.workout.stats?.calories !== undefined && (
+                            <span className="flex items-center gap-1">
+                              <Flame className="h-3 w-3" />
+                              {item.workout.stats.calories} kcal
+                            </span>
+                          )}
                       </p>
                     </div>
                     <Badge variant="secondary">

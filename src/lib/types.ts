@@ -16,6 +16,13 @@ export type WorkoutType =
   | "sports"
   | "other"
 
+export interface WorkoutStats {
+  distanceKm?: number
+  calories?: number
+  avgHr?: number
+  maxHr?: number
+}
+
 export interface Workout {
   id: string
   date: string // ISO yyyy-mm-dd
@@ -24,6 +31,9 @@ export interface Workout {
   durationMin: number
   exercises: Exercise[]
   notes: string
+  source?: "manual" | "garmin"
+  startTime?: string // full ISO datetime, when known (e.g. Garmin imports)
+  stats?: WorkoutStats
 }
 
 export type Mood = "great" | "good" | "okay" | "low" | "rough"

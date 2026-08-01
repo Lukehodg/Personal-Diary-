@@ -1,5 +1,15 @@
 import { useState } from "react"
-import { Dumbbell, Plus, Trash2 } from "lucide-react"
+import {
+  CalendarArrowDown,
+  CalendarPlus,
+  Dumbbell,
+  Flame,
+  Heart,
+  Plus,
+  Route,
+  Trash2,
+  Watch,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,6 +39,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { ImportGarminDialog } from "@/components/ImportGarminDialog"
+import { downloadICS, googleCalendarUrl } from "@/lib/calendar"
 import { formatDate, newId, todayISO } from "@/lib/store"
 import {
   WORKOUT_TYPES,
@@ -40,6 +52,7 @@ import {
 interface WorkoutsProps {
   workouts: Workout[]
   onAdd: (workout: Workout) => void
+  onImport: (workouts: Workout[]) => void
   onDelete: (id: string) => void
 }
 
@@ -53,7 +66,22 @@ function emptyExercise(): ExerciseDraft {
   return { id: newId(), name: "", sets: [{ reps: "", weight: "" }] }
 }
 
-export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
+function hasStats(w: Workout): boolean {
+  const s = w.stats
+  return Boolean(
+    s &&
+      (s.distanceKm !== undefined ||
+        s.calories !== undefined ||
+        s.avgHr !== undefined)
+  )
+}
+
+export function Workouts({
+  workouts,
+  onAdd,
+  onImport,
+  onDelete,
+}: WorkoutsProps) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [date, setDate] = useState(todayISO())
@@ -121,6 +149,7 @@ export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
       durationMin: Number(duration) || 0,
       exercises: cleanExercises,
       notes: notes.trim(),
+      source: "manual",
     })
     resetForm()
     setOpen(false)
@@ -130,13 +159,22 @@ export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-lg font-semibold">Workouts</h2>
           <p className="text-sm text-muted-foreground">
             {workouts.length} logged in total
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={() => downloadICS(workouts)}
+          disabled={workouts.length === 0}
+        >
+          <CalendarArrowDown /> Export to calendar
+        </Button>
+        <ImportGarminDialog workouts={workouts} onImport={onImport} />
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -307,6 +345,7 @@ export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {sorted.length === 0 ? (
@@ -325,7 +364,15 @@ export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <CardTitle>{w.name}</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                      {w.name}
+                      {w.source === "garmin" && (
+                        <Watch
+                          className="h-4 w-4 text-muted-foreground"
+                          aria-label="Imported from Garmin"
+                        />
+                      )}
+                    </CardTitle>
                     <CardDescription>{formatDate(w.date)}</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -338,6 +385,20 @@ export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
                     <Button
                       variant="ghost"
                       size="icon"
+                      asChild
+                      aria-label={`Add ${w.name} to Google Calendar`}
+                    >
+                      <a
+                        href={googleCalendarUrl(w)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <CalendarPlus />
+                      </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => onDelete(w.id)}
                       aria-label={`Delete ${w.name}`}
                     >
@@ -346,8 +407,32 @@ export function Workouts({ workouts, onAdd, onDelete }: WorkoutsProps) {
                   </div>
                 </div>
               </CardHeader>
-              {(w.exercises.length > 0 || w.notes) && (
+              {(w.exercises.length > 0 || w.notes || hasStats(w)) && (
                 <CardContent className="space-y-3">
+                  {hasStats(w) && (
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      {w.stats?.distanceKm !== undefined && (
+                        <span className="flex items-center gap-1.5">
+                          <Route className="h-4 w-4 text-muted-foreground" />
+                          {w.stats.distanceKm} km
+                        </span>
+                      )}
+                      {w.stats?.calories !== undefined && (
+                        <span className="flex items-center gap-1.5">
+                          <Flame className="h-4 w-4 text-muted-foreground" />
+                          {w.stats.calories} kcal
+                        </span>
+                      )}
+                      {w.stats?.avgHr !== undefined && (
+                        <span className="flex items-center gap-1.5">
+                          <Heart className="h-4 w-4 text-muted-foreground" />
+                          {w.stats.avgHr} bpm avg
+                          {w.stats.maxHr !== undefined &&
+                            ` · ${w.stats.maxHr} max`}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {w.exercises.length > 0 && (
                     <div className="grid gap-2 sm:grid-cols-2">
                       {w.exercises.map((ex) => (
