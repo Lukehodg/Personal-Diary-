@@ -1,18 +1,31 @@
 import { useEffect } from "react"
-import { BookOpen, Dumbbell, LayoutDashboard, Moon, Sun } from "lucide-react"
+import {
+  BookOpen,
+  ChartNoAxesCombined,
+  Dumbbell,
+  LayoutDashboard,
+  Moon,
+  Sun,
+} from "lucide-react"
 
+import { BackupDialog } from "@/components/BackupDialog"
 import { Dashboard } from "@/components/Dashboard"
 import { Diary } from "@/components/Diary"
+import { Insights } from "@/components/Insights"
 import { Workouts } from "@/components/Workouts"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLocalStorage } from "@/lib/store"
-import type { DiaryEntry, Workout } from "@/lib/types"
+import type { DiaryEntry, Workout, WorkoutTemplate } from "@/lib/types"
 
 export default function App() {
   const [workouts, setWorkouts] = useLocalStorage<Workout[]>("workouts", [])
   const [entries, setEntries] = useLocalStorage<DiaryEntry[]>(
     "diary-entries",
+    []
+  )
+  const [templates, setTemplates] = useLocalStorage<WorkoutTemplate[]>(
+    "workout-templates",
     []
   )
   const [dark, setDark] = useLocalStorage("dark-mode", false)
@@ -38,20 +51,30 @@ export default function App() {
               </p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDark((d) => !d)}
-            aria-label="Toggle dark mode"
-          >
-            {dark ? <Sun /> : <Moon />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <BackupDialog
+              data={{ workouts, entries, templates }}
+              onRestore={(data) => {
+                setWorkouts(data.workouts)
+                setEntries(data.entries)
+                setTemplates(data.templates)
+              }}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDark((d) => !d)}
+              aria-label="Toggle dark mode"
+            >
+              {dark ? <Sun /> : <Moon />}
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
         <Tabs defaultValue="dashboard">
-          <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:inline-flex">
+          <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
             <TabsTrigger value="dashboard">
               <LayoutDashboard /> Dashboard
             </TabsTrigger>
@@ -61,13 +84,19 @@ export default function App() {
             <TabsTrigger value="diary">
               <BookOpen /> Diary
             </TabsTrigger>
+            <TabsTrigger value="insights">
+              <ChartNoAxesCombined /> Insights
+            </TabsTrigger>
           </TabsList>
+
           <TabsContent value="dashboard" className="mt-4">
             <Dashboard workouts={workouts} entries={entries} />
           </TabsContent>
+
           <TabsContent value="workouts" className="mt-4">
             <Workouts
               workouts={workouts}
+              templates={templates}
               onAdd={(w) => setWorkouts((prev) => [...prev, w])}
               onImport={(imported) =>
                 setWorkouts((prev) => [...prev, ...imported])
@@ -75,8 +104,13 @@ export default function App() {
               onDelete={(id) =>
                 setWorkouts((prev) => prev.filter((w) => w.id !== id))
               }
+              onSaveTemplate={(t) => setTemplates((prev) => [...prev, t])}
+              onDeleteTemplate={(id) =>
+                setTemplates((prev) => prev.filter((t) => t.id !== id))
+              }
             />
           </TabsContent>
+
           <TabsContent value="diary" className="mt-4">
             <Diary
               entries={entries}
@@ -85,6 +119,10 @@ export default function App() {
                 setEntries((prev) => prev.filter((e) => e.id !== id))
               }
             />
+          </TabsContent>
+
+          <TabsContent value="insights" className="mt-4">
+            <Insights workouts={workouts} entries={entries} />
           </TabsContent>
         </Tabs>
       </main>

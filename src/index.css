@@ -23,6 +23,12 @@
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --radius: 0.625rem;
+
+  /* Status tokens — always paired with an icon and a text label, never
+     carrying meaning by colour alone. */
+  --status-good: oklch(0.58 0.13 155);
+  --status-warning: oklch(0.68 0.15 75);
+  --status-critical: oklch(0.577 0.245 27.325);
 }
 
 .dark {
@@ -45,6 +51,10 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
+
+  --status-good: oklch(0.7 0.14 155);
+  --status-warning: oklch(0.78 0.15 75);
+  --status-critical: oklch(0.704 0.191 22.216);
 }
 
 @theme inline {
@@ -67,6 +77,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-critical: var(--status-critical);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

@@ -46,13 +46,29 @@ export interface DiaryEntry {
   mood: Mood
 }
 
-export const MOODS: { value: Mood; label: string; emoji: string }[] = [
-  { value: "great", label: "Great", emoji: "😄" },
-  { value: "good", label: "Good", emoji: "🙂" },
-  { value: "okay", label: "Okay", emoji: "😐" },
-  { value: "low", label: "Low", emoji: "😕" },
-  { value: "rough", label: "Rough", emoji: "😞" },
+export interface WorkoutTemplate {
+  id: string
+  name: string
+  type: WorkoutType
+  exerciseNames: string[]
+}
+
+export const MOODS: {
+  value: Mood
+  label: string
+  emoji: string
+  score: number
+}[] = [
+  { value: "great", label: "Great", emoji: "😄", score: 5 },
+  { value: "good", label: "Good", emoji: "🙂", score: 4 },
+  { value: "okay", label: "Okay", emoji: "😐", score: 3 },
+  { value: "low", label: "Low", emoji: "😕", score: 2 },
+  { value: "rough", label: "Rough", emoji: "😞", score: 1 },
 ]
+
+export function moodScore(mood: Mood): number {
+  return MOODS.find((m) => m.value === mood)?.score ?? 3
+}
 
 export const WORKOUT_TYPES: { value: WorkoutType; label: string }[] = [
   { value: "strength", label: "Strength" },
