@@ -199,7 +199,7 @@ export function Insights({ workouts, entries }: InsightsProps) {
   const mood = moodCorrelation(workouts, entries)
   const balance = muscleBalance(workouts)
   const words = roughDayWords(entries)
-  const maxSets = Math.max(1, ...balance.volumes.map((v) => v.sets))
+  const maxSets = Math.max(1, ...balance.volumes.map((v) => v.effectiveSets))
 
   return (
     <div className="space-y-4">
@@ -297,7 +297,10 @@ export function Insights({ workouts, entries }: InsightsProps) {
         <Card>
           <CardHeader>
             <CardTitle>Muscle balance</CardTitle>
-            <CardDescription>Sets per muscle group, last 30 days</CardDescription>
+            <CardDescription>
+              Sets per muscle over the last 30 days. Assisting muscles count
+              half.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {balance.volumes.length === 0 ? (
@@ -309,19 +312,54 @@ export function Insights({ workouts, entries }: InsightsProps) {
                 <div className="space-y-2">
                   {balance.volumes.map((v) => (
                     <div key={v.muscle} className="flex items-center gap-3">
-                      <span className="w-20 shrink-0 text-sm">{v.muscle}</span>
-                      <div className="h-4 flex-1">
+                      <span className="w-24 shrink-0 truncate text-sm">
+                        {v.label}
+                      </span>
+                      <div className="flex h-4 flex-1 gap-[2px]">
                         <div
                           className="h-full rounded-sm bg-primary"
-                          style={{ width: `${(v.sets / maxSets) * 100}%` }}
+                          style={{
+                            width: `${(v.primarySets / maxSets) * 100}%`,
+                          }}
+                          title={`${v.primarySets} direct sets`}
                         />
+                        {v.secondarySets > 0 && (
+                          <div
+                            className="h-full rounded-sm bg-primary/35"
+                            style={{
+                              width: `${((v.secondarySets * 0.5) / maxSets) * 100}%`,
+                            }}
+                            title={`${v.secondarySets} sets as an assisting muscle`}
+                          />
+                        )}
                       </div>
-                      <span className="w-8 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
-                        {v.sets}
+                      <span className="w-10 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
+                        {Math.round(v.effectiveSets * 10) / 10}
                       </span>
                     </div>
                   ))}
                 </div>
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-primary" />
+                    Direct
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-primary/35" />
+                    Assisting (half weight)
+                  </span>
+                </div>
+
+                {balance.patterns.length > 0 && (
+                  <div className="flex flex-wrap gap-2 border-t pt-3">
+                    {balance.patterns.map((p) => (
+                      <Badge key={p.pattern} variant="secondary">
+                        {p.pattern} × {p.sets}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
                 {balance.warning ? (
                   <p className="flex items-start gap-2 border-t pt-3 text-sm text-muted-foreground">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
@@ -331,10 +369,16 @@ export function Insights({ workouts, entries }: InsightsProps) {
                   balance.pushSets + balance.pullSets > 0 && (
                     <p className="flex items-start gap-2 border-t pt-3 text-sm text-muted-foreground">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-status-good" />
-                      Push and pull volume look reasonably balanced (
+                      Pressing and pulling look reasonably balanced (
                       {balance.pushSets} vs {balance.pullSets} sets).
                     </p>
                   )
+                )}
+                {balance.unclassifiedSets > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {balance.unclassifiedSets} sets came from exercise names the
+                    catalogue doesn't recognise and aren't counted above.
+                  </p>
                 )}
               </div>
             )}
@@ -398,8 +442,18 @@ export function Insights({ workouts, entries }: InsightsProps) {
           </p>
           <p>
             <strong className="text-foreground">Muscle balance</strong> maps
-            exercise names onto muscle groups by keyword, so unusual names may
-            land in “Other”.
+            exercise names onto the muscle, category and equipment taxonomy used
+            by the{" "}
+            <a
+              className="underline underline-offset-2"
+              href="https://github.com/wger-project/wger"
+              target="_blank"
+              rel="noreferrer"
+            >
+              wger project
+            </a>
+            . Direct sets count fully and assisting muscles count half. Names
+            outside the catalogue fall back to keyword matching.
           </p>
         </CardContent>
       </Card>

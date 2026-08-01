@@ -53,6 +53,31 @@ export interface WorkoutTemplate {
   exerciseNames: string[]
 }
 
+/**
+ * Body tracking, modelled on wger's measurements app: a user-defined category
+ * carries a name and a unit, and entries are just a date and a value. Body
+ * weight is seeded as a category rather than special-cased.
+ */
+export interface MeasurementCategory {
+  id: string
+  name: string
+  unit: string
+}
+
+export interface MeasurementEntry {
+  id: string
+  categoryId: string
+  date: string // ISO yyyy-mm-dd
+  value: number
+  notes: string
+}
+
+export const DEFAULT_MEASUREMENT_CATEGORIES: MeasurementCategory[] = [
+  { id: "body-weight", name: "Body weight", unit: "kg" },
+  { id: "body-fat", name: "Body fat", unit: "%" },
+  { id: "waist", name: "Waist", unit: "cm" },
+]
+
 export const MOODS: {
   value: Mood
   label: string

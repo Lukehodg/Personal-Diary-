@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react"
-import { Bookmark, History, Plus, Trash2, Trophy } from "lucide-react"
+import { Bookmark, History, Plus, Search, Trash2, Trophy } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -20,8 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { ExercisePicker } from "@/components/ExercisePicker"
+import { Badge } from "@/components/ui/badge"
 import { isNewPR, lastSessionFor } from "@/lib/analytics"
-import { exerciseHistory } from "@/lib/exercises"
+import { classifyExercise, exerciseHistory } from "@/lib/exercises"
+import { muscleLabel } from "@/lib/wger"
 import { newId, todayISO } from "@/lib/store"
 import {
   WORKOUT_TYPES,
@@ -66,6 +69,7 @@ export function LogWorkoutDialog({
   const [notes, setNotes] = useState("")
   const [saveAsTemplate, setSaveAsTemplate] = useState(false)
   const [exercises, setExercises] = useState<ExerciseDraft[]>([emptyExercise()])
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
 
   const knownExercises = exerciseHistory(workouts)
 
@@ -180,6 +184,16 @@ export function LogWorkoutDialog({
           ))}
         </datalist>
 
+        <ExercisePicker
+          open={pickerFor !== null}
+          onOpenChange={(o) => !o && setPickerFor(null)}
+          recent={knownExercises}
+          onPick={(name) => {
+            if (pickerFor) updateExercise(pickerFor, { name })
+            setPickerFor(null)
+          }}
+        />
+
         <div className="grid gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
@@ -240,6 +254,7 @@ export function LogWorkoutDialog({
               const last = ex.name.trim()
                 ? lastSessionFor(workouts, ex.name)
                 : null
+              const info = ex.name.trim() ? classifyExercise(ex.name) : null
               return (
                 <div key={ex.id} className="rounded-lg border p-3">
                   <div className="flex items-center gap-2">
@@ -252,6 +267,14 @@ export function LogWorkoutDialog({
                       }
                     />
                     <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setPickerFor(ex.id)}
+                      aria-label="Browse exercise catalogue"
+                    >
+                      <Search />
+                    </Button>
+                    <Button
                       variant="ghost"
                       size="icon"
                       onClick={() =>
@@ -262,6 +285,21 @@ export function LogWorkoutDialog({
                       <Trash2 />
                     </Button>
                   </div>
+
+                  {info?.known && info.primary.length > 0 && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {info.primary.map((m) => (
+                        <Badge key={m} variant="secondary" className="text-[10px]">
+                          {muscleLabel(m)}
+                        </Badge>
+                      ))}
+                      {info.secondary.map((m) => (
+                        <Badge key={m} variant="outline" className="text-[10px]">
+                          {muscleLabel(m)}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
 
                   {last && (
                     <div className="mt-2 rounded-md bg-muted/60 p-2 text-xs">

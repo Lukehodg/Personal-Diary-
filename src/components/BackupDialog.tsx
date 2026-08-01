@@ -14,6 +14,7 @@ import {
 import {
   exportBackup,
   parseBackup,
+  totalOf,
   type BackupData,
   type ImportResult,
 } from "@/lib/backup"
@@ -45,9 +46,12 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
     setOpen(false)
   }
 
-  const totalAdded = result?.ok
-    ? result.added.workouts + result.added.entries + result.added.templates
-    : 0
+  const totalAdded = result?.ok ? totalOf(result.added) : 0
+  const isEmpty =
+    data.workouts.length === 0 &&
+    data.entries.length === 0 &&
+    data.templates.length === 0 &&
+    data.measurements.length === 0
 
   return (
     <Dialog
@@ -76,16 +80,13 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
             <p className="text-sm font-medium">Your data right now</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {data.workouts.length} workouts · {data.entries.length} diary
-              entries · {data.templates.length} templates
+              entries · {data.templates.length} templates ·{" "}
+              {data.measurements.length} measurements
             </p>
             <Button
               className="mt-3 w-full"
               onClick={() => exportBackup(data)}
-              disabled={
-                data.workouts.length === 0 &&
-                data.entries.length === 0 &&
-                data.templates.length === 0
-              }
+              disabled={isEmpty}
             >
               <Download /> Download backup
             </Button>
@@ -122,8 +123,9 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
                   <>
                     Ready to add <strong>{result.added.workouts}</strong>{" "}
                     workouts, <strong>{result.added.entries}</strong> diary
-                    entries and <strong>{result.added.templates}</strong>{" "}
-                    templates.
+                    entries, <strong>{result.added.templates}</strong> templates
+                    and <strong>{result.added.measurements}</strong>{" "}
+                    measurements.
                   </>
                 )}
               </p>

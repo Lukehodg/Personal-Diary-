@@ -1,65 +1,101 @@
+import { matchExercise } from "@/lib/exerciseCatalog"
+import {
+  patternForCategory,
+  type CategoryId,
+  type MovementPattern,
+  type MuscleId,
+} from "@/lib/wger"
 import type { Workout } from "@/lib/types"
 
-export type MuscleGroup =
-  | "Chest"
-  | "Back"
-  | "Shoulders"
-  | "Biceps"
-  | "Triceps"
-  | "Legs"
-  | "Core"
-  | "Cardio"
-  | "Other"
-
-export type MovementPattern = "Push" | "Pull" | "Legs" | "Core" | "Cardio" | "Other"
+export interface ExerciseClassification {
+  category: CategoryId | null
+  primary: MuscleId[]
+  secondary: MuscleId[]
+  pattern: MovementPattern | null
+  /** True when the name matched the catalogue rather than a keyword guess. */
+  known: boolean
+}
 
 /**
- * Ordered longest-match-first so specific names win: "close grip bench" is
- * triceps work, not chest, and a rowing machine is cardio while a barbell
- * row is back.
+ * Fallback for names the catalogue doesn't know. Ordered so specific patterns
+ * win: a rowing machine is cardio while a barbell row is back work.
  */
-const MUSCLE_RULES: [RegExp, MuscleGroup][] = [
-  [/close.?grip|skull|pushdown|press.?down|tricep|kickback|dip\b/, "Triceps"],
-  [/lateral raise|front raise|rear delt|face pull|upright row|arnold|overhead press|shoulder press|military|ohp\b/, "Shoulders"],
-  [/rowing machine|erg\b|treadmill|elliptical|run\b|running|jog|cycle|cycling|bike|swim|walk|hike|stair/, "Cardio"],
-  [/curl(?!.*leg)|chin.?up|bicep/, "Biceps"],
-  [/bench|chest|pec |pec$|fly|flye|push.?up|press.?up/, "Chest"],
-  [/row|pull.?up|pull.?down|lat |lat$|shrug|pullover|chin/, "Back"],
-  [/squat|lunge|leg press|leg curl|leg extension|calf|hip thrust|glute|rdl|romanian|deadlift|step.?up|hamstring|quad|bulgarian/, "Legs"],
-  [/plank|crunch|sit.?up|ab |abs\b|russian twist|leg raise|hanging|hollow|dead ?bug|oblique/, "Core"],
-  [/press/, "Chest"],
+const KEYWORD_RULES: [RegExp, CategoryId][] = [
+  [/close.?grip|skull|pushdown|press.?down|tricep|kickback/, 8],
+  [/lateral raise|front raise|rear delt|face pull|upright row|arnold|overhead press|shoulder press|military|ohp\b/, 13],
+  [/rowing machine|erg\b|treadmill|elliptical|run\b|running|jog|cycl|bike|swim|walk|hike|stair|cardio/, 15],
+  [/curl(?!.*leg)|bicep/, 8],
+  [/calf|calves/, 14],
+  [/bench|chest|pec|fly|flye|push.?up|press.?up/, 11],
+  [/row|pull.?up|pull.?down|lat |shrug|pullover|chin|deadlift|back extension/, 12],
+  [/squat|lunge|leg press|leg curl|leg extension|hip thrust|glute|rdl|romanian|step.?up|hamstring|quad|bulgarian/, 9],
+  [/plank|crunch|sit.?up|abs?\b|russian twist|leg raise|hollow|dead ?bug|oblique/, 10],
+  [/press/, 11],
 ]
 
-const PATTERN_OF: Record<MuscleGroup, MovementPattern> = {
-  Chest: "Push",
-  Shoulders: "Push",
-  Triceps: "Push",
-  Back: "Pull",
-  Biceps: "Pull",
-  Legs: "Legs",
-  Core: "Core",
-  Cardio: "Cardio",
-  Other: "Other",
+/** Rough primary muscles per category, for names we could only guess at. */
+const CATEGORY_FALLBACK_MUSCLES: Record<CategoryId, MuscleId[]> = {
+  8: [1],
+  9: [10, 8],
+  10: [6],
+  11: [4],
+  12: [12],
+  13: [2],
+  14: [7],
+  15: [10],
 }
 
-export function muscleGroupFor(exerciseName: string): MuscleGroup {
-  const name = exerciseName.toLowerCase()
-  for (const [pattern, group] of MUSCLE_RULES) {
-    if (pattern.test(name)) return group
+export function classifyExercise(name: string): ExerciseClassification {
+  const hit = matchExercise(name)
+  if (hit) {
+    return {
+      category: hit.category,
+      primary: hit.primary,
+      secondary: hit.secondary,
+      pattern: patternForCategory(hit.category, hit.primary),
+      known: true,
+    }
   }
-  return "Other"
-}
 
-export function movementPatternFor(exerciseName: string): MovementPattern {
-  return PATTERN_OF[muscleGroupFor(exerciseName)]
+  const lower = name.trim().toLowerCase()
+  for (const [pattern, category] of KEYWORD_RULES) {
+    if (pattern.test(lower)) {
+      const primary = CATEGORY_FALLBACK_MUSCLES[category]
+      return {
+        category,
+        primary,
+        secondary: [],
+        pattern: patternForCategory(category, primary),
+        known: false,
+      }
+    }
+  }
+
+  return {
+    category: null,
+    primary: [],
+    secondary: [],
+    pattern: null,
+    known: false,
+  }
 }
 
 /**
  * Collapse spelling variations so "Bench Press", "bench press" and
- * "  Bench  press " all count as the same lift for PR tracking.
+ * "  Bench  press " all count as the same lift for PR tracking. Names the
+ * catalogue recognises collapse onto its canonical name, so "OHP" and
+ * "Overhead press" share a record.
  */
 export function normalizeExercise(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, " ")
+  const cleaned = name.trim().toLowerCase().replace(/\s+/g, " ")
+  if (!cleaned) return ""
+  const hit = matchExercise(cleaned)
+  return hit ? hit.name.toLowerCase() : cleaned
+}
+
+/** Display name for a lift — the catalogue's spelling when it knows it. */
+export function canonicalName(name: string): string {
+  return matchExercise(name)?.name ?? name.trim()
 }
 
 /** Every distinct exercise name in the log, most recently used first. */
@@ -69,7 +105,7 @@ export function exerciseHistory(workouts: Workout[]): string[] {
   for (const w of byDate) {
     for (const ex of w.exercises) {
       const key = normalizeExercise(ex.name)
-      if (key && !seen.has(key)) seen.set(key, ex.name.trim())
+      if (key && !seen.has(key)) seen.set(key, canonicalName(ex.name))
     }
   }
   return [...seen.values()]

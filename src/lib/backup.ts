@@ -1,21 +1,26 @@
 import { todayISO } from "@/lib/store"
-import type { DiaryEntry, Workout, WorkoutTemplate } from "@/lib/types"
+import type {
+  DiaryEntry,
+  MeasurementCategory,
+  MeasurementEntry,
+  Workout,
+  WorkoutTemplate,
+} from "@/lib/types"
 
-export const BACKUP_VERSION = 1
-
-export interface BackupFile {
-  app: "workout-tracker-diary"
-  version: number
-  exportedAt: string
-  workouts: Workout[]
-  entries: DiaryEntry[]
-  templates: WorkoutTemplate[]
-}
+export const BACKUP_VERSION = 2
 
 export interface BackupData {
   workouts: Workout[]
   entries: DiaryEntry[]
   templates: WorkoutTemplate[]
+  measurementCategories: MeasurementCategory[]
+  measurements: MeasurementEntry[]
+}
+
+export interface BackupFile extends BackupData {
+  app: "workout-tracker-diary"
+  version: number
+  exportedAt: string
 }
 
 export function exportBackup(data: BackupData) {
@@ -36,12 +41,30 @@ export function exportBackup(data: BackupData) {
   URL.revokeObjectURL(url)
 }
 
+export interface ImportCounts {
+  workouts: number
+  entries: number
+  templates: number
+  measurementCategories: number
+  measurements: number
+}
+
 export interface ImportResult {
   ok: boolean
   error?: string
   data?: BackupData
-  added: { workouts: number; entries: number; templates: number }
-  skipped: { workouts: number; entries: number; templates: number }
+  added: ImportCounts
+  skipped: ImportCounts
+}
+
+export function totalOf(counts: ImportCounts): number {
+  return (
+    counts.workouts +
+    counts.entries +
+    counts.templates +
+    counts.measurementCategories +
+    counts.measurements
+  )
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,12 +99,39 @@ function validTemplate(value: unknown): value is WorkoutTemplate {
   )
 }
 
+function validMeasurementCategory(
+  value: unknown
+): value is MeasurementCategory {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.unit === "string"
+  )
+}
+
+function validMeasurement(value: unknown): value is MeasurementEntry {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.categoryId === "string" &&
+    typeof value.date === "string" &&
+    typeof value.value === "number"
+  )
+}
+
 /**
  * Merge a backup into the current data, keyed by id so importing the same
  * file twice never duplicates anything.
  */
 export function parseBackup(text: string, current: BackupData): ImportResult {
-  const empty = { workouts: 0, entries: 0, templates: 0 }
+  const empty: ImportCounts = {
+    workouts: 0,
+    entries: 0,
+    templates: 0,
+    measurementCategories: 0,
+    measurements: 0,
+  }
   let raw: unknown
   try {
     raw = JSON.parse(text)
@@ -121,14 +171,27 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
   const incomingTemplates = Array.isArray(raw.templates)
     ? raw.templates.filter(validTemplate)
     : []
+  // Measurements arrived in v2; a v1 backup simply has none.
+  const incomingCategories = Array.isArray(raw.measurementCategories)
+    ? raw.measurementCategories.filter(validMeasurementCategory)
+    : []
+  const incomingMeasurements = Array.isArray(raw.measurements)
+    ? raw.measurements.filter(validMeasurement)
+    : []
 
   const workoutIds = new Set(current.workouts.map((w) => w.id))
   const entryIds = new Set(current.entries.map((e) => e.id))
   const templateIds = new Set(current.templates.map((t) => t.id))
+  const categoryIds = new Set(current.measurementCategories.map((c) => c.id))
+  const measurementIds = new Set(current.measurements.map((m) => m.id))
 
   const newWorkouts = incomingWorkouts.filter((w) => !workoutIds.has(w.id))
   const newEntries = incomingEntries.filter((e) => !entryIds.has(e.id))
   const newTemplates = incomingTemplates.filter((t) => !templateIds.has(t.id))
+  const newCategories = incomingCategories.filter((c) => !categoryIds.has(c.id))
+  const newMeasurements = incomingMeasurements.filter(
+    (m) => !measurementIds.has(m.id)
+  )
 
   return {
     ok: true,
@@ -136,16 +199,26 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
       workouts: [...current.workouts, ...newWorkouts],
       entries: [...current.entries, ...newEntries],
       templates: [...current.templates, ...newTemplates],
+      measurementCategories: [
+        ...current.measurementCategories,
+        ...newCategories,
+      ],
+      measurements: [...current.measurements, ...newMeasurements],
     },
     added: {
       workouts: newWorkouts.length,
       entries: newEntries.length,
       templates: newTemplates.length,
+      measurementCategories: newCategories.length,
+      measurements: newMeasurements.length,
     },
     skipped: {
       workouts: incomingWorkouts.length - newWorkouts.length,
       entries: incomingEntries.length - newEntries.length,
       templates: incomingTemplates.length - newTemplates.length,
+      measurementCategories:
+        incomingCategories.length - newCategories.length,
+      measurements: incomingMeasurements.length - newMeasurements.length,
     },
   }
 }

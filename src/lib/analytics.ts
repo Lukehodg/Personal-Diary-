@@ -1,4 +1,5 @@
-import { muscleGroupFor, normalizeExercise, type MuscleGroup } from "@/lib/exercises"
+import { classifyExercise, normalizeExercise } from "@/lib/exercises"
+import { muscleLabel, type MovementPattern, type MuscleId } from "@/lib/wger"
 import { todayISO } from "@/lib/store"
 import {
   moodScore,
@@ -53,7 +54,7 @@ export interface ExercisePR {
   history: PRPoint[]
   /** Percent change from the first recorded session to the best. */
   progressPct: number
-  muscle: MuscleGroup
+  muscle: string
 }
 
 export function personalRecords(workouts: Workout[]): ExercisePR[] {
@@ -106,7 +107,10 @@ export function personalRecords(workouts: Workout[]): ExercisePR[] {
       totalSets: entry.sets.length,
       history,
       progressPct: first > 0 ? Math.round(((bestE1rm - first) / first) * 100) : 0,
-      muscle: muscleGroupFor(entry.name),
+      muscle: (() => {
+        const primary = classifyExercise(entry.name).primary[0]
+        return primary ? muscleLabel(primary) : "Other"
+      })(),
     })
   }
 
@@ -368,16 +372,24 @@ export function roughDayWords(entries: DiaryEntry[]): WordSignal[] {
 /* ------------------------------------------------------------------ */
 
 export interface MuscleVolume {
-  muscle: MuscleGroup
-  sets: number
+  muscle: MuscleId
+  label: string
+  /** Direct sets, where this muscle is the point of the lift. */
+  primarySets: number
+  /** Sets where it assists — counted at half weight, the usual convention. */
+  secondarySets: number
+  effectiveSets: number
 }
 
 export interface BalanceReport {
   volumes: MuscleVolume[]
+  patterns: { pattern: MovementPattern; sets: number }[]
   pushSets: number
   pullSets: number
   legSets: number
   totalSets: number
+  /** Sets whose exercise name the catalogue didn't recognise. */
+  unclassifiedSets: number
   warning: string | null
 }
 
@@ -386,40 +398,87 @@ export function muscleBalance(
   windowDays = 30
 ): BalanceReport {
   const since = daysAgoISO(windowDays)
-  const counts = new Map<MuscleGroup, number>()
+  const primaryCounts = new Map<MuscleId, number>()
+  const secondaryCounts = new Map<MuscleId, number>()
+  const patternCounts = new Map<MovementPattern, number>()
+  let totalSets = 0
+  let unclassifiedSets = 0
+
   for (const w of workouts) {
     if (w.date <= since) continue
     for (const ex of w.exercises) {
-      const group = muscleGroupFor(ex.name)
-      const sets = Math.max(ex.sets.length, 0)
+      const sets = ex.sets.length
       if (sets === 0) continue
-      counts.set(group, (counts.get(group) ?? 0) + sets)
+      totalSets += sets
+      const info = classifyExercise(ex.name)
+      if (!info.category) {
+        unclassifiedSets += sets
+        continue
+      }
+      for (const m of info.primary) {
+        primaryCounts.set(m, (primaryCounts.get(m) ?? 0) + sets)
+      }
+      for (const m of info.secondary) {
+        secondaryCounts.set(m, (secondaryCounts.get(m) ?? 0) + sets)
+      }
+      if (info.pattern) {
+        patternCounts.set(
+          info.pattern,
+          (patternCounts.get(info.pattern) ?? 0) + sets
+        )
+      }
     }
   }
 
-  const volumes = [...counts.entries()]
-    .map(([muscle, sets]) => ({ muscle, sets }))
+  const muscleIds = new Set<MuscleId>([
+    ...primaryCounts.keys(),
+    ...secondaryCounts.keys(),
+  ])
+  const volumes: MuscleVolume[] = [...muscleIds]
+    .map((muscle) => {
+      const primarySets = primaryCounts.get(muscle) ?? 0
+      const secondarySets = secondaryCounts.get(muscle) ?? 0
+      return {
+        muscle,
+        label: muscleLabel(muscle),
+        primarySets,
+        secondarySets,
+        effectiveSets: primarySets + secondarySets * 0.5,
+      }
+    })
+    .sort((a, b) => b.effectiveSets - a.effectiveSets)
+
+  const patterns = [...patternCounts.entries()]
+    .map(([pattern, sets]) => ({ pattern, sets }))
     .sort((a, b) => b.sets - a.sets)
 
-  const get = (m: MuscleGroup) => counts.get(m) ?? 0
-  const pushSets = get("Chest") + get("Shoulders") + get("Triceps")
-  const pullSets = get("Back") + get("Biceps")
-  const legSets = get("Legs")
-  const totalSets = volumes.reduce((sum, v) => sum + v.sets, 0)
+  const patternSets = (p: MovementPattern) => patternCounts.get(p) ?? 0
+  const pushSets = patternSets("Push")
+  const pullSets = patternSets("Pull")
+  const legSets = patternSets("Legs")
 
   let warning: string | null = null
   if (pushSets + pullSets >= 8) {
-    if (pushSets >= pullSets * 2) {
-      warning = `Push volume is well ahead of pull (${pushSets} vs ${pullSets} sets). Adding rows or pull-ups helps keep shoulders healthy.`
-    } else if (pullSets >= pushSets * 2) {
-      warning = `Pull volume is well ahead of push (${pullSets} vs ${pushSets} sets).`
+    if (pushSets >= pullSets * 1.75) {
+      warning = `Pressing volume is well ahead of pulling (${pushSets} vs ${pullSets} sets). More rows or pull-ups would even that out.`
+    } else if (pullSets >= pushSets * 1.75) {
+      warning = `Pulling volume is well ahead of pressing (${pullSets} vs ${pushSets} sets).`
     }
   }
-  if (!warning && totalSets >= 12 && legSets === 0) {
+  if (!warning && pushSets + pullSets >= 12 && legSets === 0) {
     warning = "No leg work logged in this window."
   }
 
-  return { volumes, pushSets, pullSets, legSets, totalSets, warning }
+  return {
+    volumes,
+    patterns,
+    pushSets,
+    pullSets,
+    legSets,
+    totalSets,
+    unclassifiedSets,
+    warning,
+  }
 }
 
 /* ------------------------------------------------------------------ */

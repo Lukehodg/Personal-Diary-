@@ -5,6 +5,7 @@ import {
   Dumbbell,
   LayoutDashboard,
   Moon,
+  Ruler,
   Sun,
 } from "lucide-react"
 
@@ -12,11 +13,19 @@ import { BackupDialog } from "@/components/BackupDialog"
 import { Dashboard } from "@/components/Dashboard"
 import { Diary } from "@/components/Diary"
 import { Insights } from "@/components/Insights"
+import { Measurements } from "@/components/Measurements"
 import { Workouts } from "@/components/Workouts"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLocalStorage } from "@/lib/store"
-import type { DiaryEntry, Workout, WorkoutTemplate } from "@/lib/types"
+import {
+  DEFAULT_MEASUREMENT_CATEGORIES,
+  type DiaryEntry,
+  type MeasurementCategory,
+  type MeasurementEntry,
+  type Workout,
+  type WorkoutTemplate,
+} from "@/lib/types"
 
 export default function App() {
   const [workouts, setWorkouts] = useLocalStorage<Workout[]>("workouts", [])
@@ -28,7 +37,22 @@ export default function App() {
     "workout-templates",
     []
   )
+  const [measurementCategories, setMeasurementCategories] = useLocalStorage<
+    MeasurementCategory[]
+  >("measurement-categories", DEFAULT_MEASUREMENT_CATEGORIES)
+  const [measurements, setMeasurements] = useLocalStorage<MeasurementEntry[]>(
+    "measurements",
+    []
+  )
   const [dark, setDark] = useLocalStorage("dark-mode", false)
+
+  const backupData = {
+    workouts,
+    entries,
+    templates,
+    measurementCategories,
+    measurements,
+  }
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -53,11 +77,13 @@ export default function App() {
           </div>
           <div className="flex items-center gap-1">
             <BackupDialog
-              data={{ workouts, entries, templates }}
+              data={backupData}
               onRestore={(data) => {
                 setWorkouts(data.workouts)
                 setEntries(data.entries)
                 setTemplates(data.templates)
+                setMeasurementCategories(data.measurementCategories)
+                setMeasurements(data.measurements)
               }}
             />
             <Button
@@ -74,18 +100,26 @@ export default function App() {
 
       <main className="mx-auto max-w-5xl px-4 py-6">
         <Tabs defaultValue="dashboard">
-          <TabsList className="grid w-full grid-cols-4 sm:inline-flex sm:w-auto">
+          <TabsList className="grid w-full grid-cols-5 sm:inline-flex sm:w-auto">
             <TabsTrigger value="dashboard">
-              <LayoutDashboard /> Dashboard
+              <LayoutDashboard />
+              <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
             <TabsTrigger value="workouts">
-              <Dumbbell /> Workouts
+              <Dumbbell />
+              <span className="hidden sm:inline">Workouts</span>
             </TabsTrigger>
             <TabsTrigger value="diary">
-              <BookOpen /> Diary
+              <BookOpen />
+              <span className="hidden sm:inline">Diary</span>
+            </TabsTrigger>
+            <TabsTrigger value="body">
+              <Ruler />
+              <span className="hidden sm:inline">Body</span>
             </TabsTrigger>
             <TabsTrigger value="insights">
-              <ChartNoAxesCombined /> Insights
+              <ChartNoAxesCombined />
+              <span className="hidden sm:inline">Insights</span>
             </TabsTrigger>
           </TabsList>
 
@@ -118,6 +152,28 @@ export default function App() {
               onDelete={(id) =>
                 setEntries((prev) => prev.filter((e) => e.id !== id))
               }
+            />
+          </TabsContent>
+
+          <TabsContent value="body" className="mt-4">
+            <Measurements
+              categories={measurementCategories}
+              entries={measurements}
+              onAddEntry={(m) => setMeasurements((prev) => [...prev, m])}
+              onDeleteEntry={(id) =>
+                setMeasurements((prev) => prev.filter((m) => m.id !== id))
+              }
+              onAddCategory={(c) =>
+                setMeasurementCategories((prev) => [...prev, c])
+              }
+              onDeleteCategory={(id) => {
+                setMeasurementCategories((prev) =>
+                  prev.filter((c) => c.id !== id)
+                )
+                setMeasurements((prev) =>
+                  prev.filter((m) => m.categoryId !== id)
+                )
+              }}
             />
           </TabsContent>
 

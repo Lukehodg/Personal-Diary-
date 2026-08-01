@@ -7,7 +7,10 @@ watch your progress on a dashboard with weekly goals and streaks.
 Built with [React](https://react.dev), [Vite](https://vite.dev),
 [Tailwind CSS](https://tailwindcss.com), and
 [shadcn/ui](https://ui.shadcn.com)-style components on
-[Radix UI](https://www.radix-ui.com) primitives.
+[Radix UI](https://www.radix-ui.com) primitives. Exercise classification
+follows the taxonomy used by the
+[wger project](https://github.com/wger-project/wger) — see
+[Credits](#credits).
 
 ## Features
 
@@ -22,6 +25,11 @@ Built with [React](https://react.dev), [Vite](https://vite.dev),
 - **Calendar integration** — export all workouts as an `.ics` file for
   Google/Apple/Outlook Calendar, or add a single workout to Google Calendar
   with one click. See [Calendar integration](#calendar-integration) below.
+- **Exercise catalogue** — ~90 common exercises classified by muscle, category
+  and equipment, with a searchable picker and alias matching so "ohp" and
+  "Overhead press" are the same lift. See [Exercise catalogue](#exercise-catalogue).
+- **Body tracking** — body weight, body fat, waist and any measurement category
+  you invent, with trends over time.
 - **Insights** — personal records, training load, mood correlation, muscle
   balance and a consistency heatmap, all derived from your own log. See
   [Insights](#insights) below.
@@ -38,6 +46,35 @@ Built with [React](https://react.dev), [Vite](https://vite.dev),
 - **Dark mode** — toggle in the header; your preference is remembered.
 - **Private by design** — everything is stored in your browser's
   `localStorage`. No account, no server, no data leaves your machine.
+
+## Exercise catalogue
+
+Exercises are classified against the taxonomy the
+[wger project](https://github.com/wger-project/wger) uses — its 16 anatomical
+muscles, 8 categories (Arms, Legs, Abs, Chest, Back, Shoulders, Calves, Cardio)
+and 12 equipment types, with the same numeric identifiers. Using wger's schema
+rather than an invented one means the data would line up with a wger instance
+if you ever moved to one.
+
+Around 90 common exercises are mapped onto it in `src/lib/exerciseCatalog.ts`,
+each with primary muscles, assisting muscles and the kit it needs. The magnifier
+next to any exercise field opens a picker you can search and filter by category
+or equipment.
+
+Names are matched leniently, so `ohp`, `Overhead press` and `military press` all
+resolve to the same lift and share one PR record — while specific names stay
+specific, and `close grip bench press` is correctly triceps work rather than
+chest. Names outside the catalogue still work; they fall back to keyword
+matching, and anything that can't be classified at all is reported rather than
+silently miscounted.
+
+## Body tracking
+
+The Body tab follows wger's measurements model: a category is just a name and a
+unit, and an entry is a date and a value. Body weight, body fat and waist are
+there by default; add your own for anything else — resting heart rate, sleep
+hours, bicep. Each category shows its latest reading, the change since the
+previous one, and a trend line.
 
 ## Insights
 
@@ -59,8 +96,10 @@ higher injury risk.
 **Mood and training** compares your average diary mood on days you trained
 against days you didn't, once there are at least three entries on each side.
 
-**Muscle balance** maps exercise names onto muscle groups by keyword and counts
-sets over the last 30 days, flagging lopsided push/pull volume.
+**Muscle balance** counts sets per muscle over the last 30 days using the
+catalogue, weighting direct work fully and assisting muscles at half — the usual
+convention for volume tracking. It flags lopsided pressing versus pulling
+volume.
 
 **Words on rough days** surfaces words that appear disproportionately in your
 low-mood entries. It's a crude frequency count, not a diagnosis — but it's good
@@ -161,20 +200,36 @@ src/
 │   ├── Dashboard.tsx
 │   ├── Workouts.tsx            # Workout list, templates, calendar links
 │   ├── LogWorkoutDialog.tsx    # Logging form with PR + overload hints
+│   ├── ExercisePicker.tsx      # Searchable catalogue picker
 │   ├── ImportGarminDialog.tsx
 │   ├── Diary.tsx
+│   ├── Measurements.tsx        # Body weight & custom measurements
 │   ├── Insights.tsx            # PRs, load, mood, balance, keywords
 │   ├── Heatmap.tsx
 │   ├── RestTimer.tsx
 │   └── BackupDialog.tsx
 ├── lib/
-│   ├── types.ts       # Workout, diary entry & template types
-│   ├── store.ts       # localStorage hook + date helpers
-│   ├── analytics.ts   # e1RM, PRs, ACWR, mood, keywords, heatmap
-│   ├── exercises.ts   # Name normalisation + muscle group mapping
-│   ├── garmin.ts      # Garmin CSV/TCX parsers
-│   ├── calendar.ts    # ICS generation + Google Calendar links
-│   ├── backup.ts      # JSON export/import with validation
-│   └── utils.ts       # cn() class helper
-└── App.tsx            # Tab shell, dark mode, state
+│   ├── types.ts            # Workouts, diary, templates, measurements
+│   ├── store.ts            # localStorage hook + date helpers
+│   ├── analytics.ts        # e1RM, PRs, ACWR, mood, keywords, heatmap
+│   ├── wger.ts             # Muscle/category/equipment taxonomy
+│   ├── exerciseCatalog.ts  # Exercises mapped onto that taxonomy
+│   ├── exercises.ts        # Classification, normalisation, history
+│   ├── garmin.ts           # Garmin CSV/TCX parsers
+│   ├── calendar.ts         # ICS generation + Google Calendar links
+│   ├── backup.ts           # JSON export/import with validation
+│   └── utils.ts            # cn() class helper
+└── App.tsx                 # Tab shell, dark mode, state
 ```
+
+## Credits
+
+The exercise taxonomy — the muscle, category and equipment lists and their
+identifiers — comes from the [wger project](https://github.com/wger-project/wger),
+a self-hosted fitness manager licensed under AGPL-3.0-or-later, with its
+exercise database under Creative Commons. Only the taxonomy is used here; the
+exercise catalogue in `src/lib/exerciseCatalog.ts` is this project's own
+mapping of common exercise names onto it, and no exercise descriptions or
+images from wger are bundled.
+
+Component patterns follow [shadcn/ui](https://ui.shadcn.com) (MIT).
