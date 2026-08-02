@@ -203,16 +203,16 @@ export function Diary({ entries, onSave, onDelete }: DiaryProps) {
             return (
               <Card key={entry.id}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <CardTitle className="truncate">
                         {entry.title || "Diary entry"}
                       </CardTitle>
                       <CardDescription>
                         {formatDate(entry.date)}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                       {mood && (
                         <Badge variant="secondary">
                           {mood.emoji} {mood.label}

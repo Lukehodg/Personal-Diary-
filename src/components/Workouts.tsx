@@ -176,20 +176,23 @@ export function Workouts({
           {sorted.map((w) => (
             <Card key={w.id}>
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
+                {/* The badges and buttons can't shrink, so on a phone they'd
+                    squeeze the title down to an ellipsis. Stack them instead
+                    and only sit side by side once there's room. */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <CardTitle className="flex items-center gap-2">
-                      {w.name}
+                      <span className="truncate">{w.name}</span>
                       {w.source === "garmin" && (
                         <Watch
-                          className="h-4 w-4 text-muted-foreground"
+                          className="h-4 w-4 shrink-0 text-muted-foreground"
                           aria-label="Imported from Garmin"
                         />
                       )}
                     </CardTitle>
                     <CardDescription>{formatDate(w.date)}</CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 items-center gap-2">
                     <Badge variant="secondary" className="capitalize">
                       {w.type}
                     </Badge>

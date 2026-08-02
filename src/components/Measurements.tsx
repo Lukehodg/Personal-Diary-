@@ -439,16 +439,18 @@ export function Measurements({
             return (
               <Card key={category.id}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle>{category.name}</CardTitle>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <CardTitle className="truncate">
+                        {category.name}
+                      </CardTitle>
                       <CardDescription>
                         {forCategory.length === 0
                           ? "No readings yet"
                           : `${forCategory.length} readings · measured in ${category.unit}`}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                       {latest && (
                         <div className="text-right">
                           <p className="text-2xl font-bold">

@@ -67,7 +67,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b">
+      {/* Safe-area padding keeps the header clear of the status bar and the
+          notch when running as an installed app rather than in a browser. */}
+      <header className="border-b pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -105,28 +107,28 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
         <Tabs defaultValue="dashboard">
           <TabsList className="grid w-full grid-cols-5 sm:inline-flex sm:w-auto">
             <TabsTrigger value="dashboard">
               <LayoutDashboard />
-              <span className="hidden sm:inline">Dashboard</span>
+              <span className="sr-only sm:not-sr-only">Dashboard</span>
             </TabsTrigger>
             <TabsTrigger value="workouts">
               <Dumbbell />
-              <span className="hidden sm:inline">Workouts</span>
+              <span className="sr-only sm:not-sr-only">Workouts</span>
             </TabsTrigger>
             <TabsTrigger value="diary">
               <BookOpen />
-              <span className="hidden sm:inline">Diary</span>
+              <span className="sr-only sm:not-sr-only">Diary</span>
             </TabsTrigger>
             <TabsTrigger value="body">
               <Ruler />
-              <span className="hidden sm:inline">Body</span>
+              <span className="sr-only sm:not-sr-only">Body</span>
             </TabsTrigger>
             <TabsTrigger value="insights">
               <ChartNoAxesCombined />
-              <span className="hidden sm:inline">Insights</span>
+              <span className="sr-only sm:not-sr-only">Insights</span>
             </TabsTrigger>
           </TabsList>
 

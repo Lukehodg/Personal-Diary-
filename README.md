@@ -157,12 +157,45 @@ aren't backups from this app are rejected rather than half-applied.
 
 ## Install it on your phone
 
-The app is a PWA. Open it in a mobile browser and choose "Add to Home Screen"
-(Safari) or "Install app" (Chrome). It then launches full-screen and works
-entirely offline — useful in gyms with no signal, since all your data is local
-anyway.
+There are two ways, and they store data separately — pick one and stick to it,
+or you'll end up with two split histories.
+
+### As a web app (no Mac needed)
+
+The app is a PWA. Open the deployed URL in a mobile browser and choose "Add to
+Home Screen" (Safari — it must be Safari on iOS) or "Install app" (Chrome). It
+then launches full-screen and works entirely offline.
 
 Installing needs the app served over HTTPS, so deploy it first.
+
+### As a native iOS app
+
+[Capacitor](https://capacitorjs.com) wraps the same build in a real iOS app.
+Worth it for two reasons: the data lives in the app's own container rather
+than in Safari's storage, which iOS is far more willing to reclaim; and it's
+the only route to HealthKit, since Apple Health has no web API.
+
+Requires a Mac with Xcode and an Apple Developer account. Capacitor 8 uses
+Swift Package Manager, so there's no CocoaPods step.
+
+```bash
+npm run ios     # build, copy into the iOS project, open Xcode
+```
+
+Then in Xcode: select your device, set your signing team under
+**Signing & Capabilities**, and hit Run. With a paid developer account the
+install lasts a year; a free Apple ID expires after seven days.
+
+`npm run ios:sync` does the same without opening Xcode — run it after any web
+change to copy the new build across.
+
+The `ios/` project is committed, but the copied web assets
+(`ios/App/App/public`) and generated config are gitignored, since `cap sync`
+regenerates them from `dist/`.
+
+**The bundle identifier is `com.lukehodg.workoutdiary`**, set in
+`capacitor.config.ts`. Change it there if you'd rather use a different one,
+then re-run `npm run ios:sync`.
 
 ## Deploying
 

@@ -26,3 +26,9 @@ dist-ssr
 # Cloudflare Wrangler
 .wrangler
 .dev.vars
+
+# Xcode / Capacitor build artefacts. The iOS project itself is committed —
+# only generated and machine-local files are ignored.
+DerivedData
+*.xcuserstate
+.swiftpm

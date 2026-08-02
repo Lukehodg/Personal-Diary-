@@ -309,6 +309,7 @@ export function LogWorkoutDialog({
                 <div key={ex.id} className="rounded-lg border p-3">
                   <div className="flex items-center gap-2">
                     <Input
+                      className="min-w-0"
                       list={datalistId}
                       placeholder="Exercise name, e.g. Bench press"
                       value={ex.name}
@@ -383,7 +384,11 @@ export function LogWorkoutDialog({
                           <span className="w-12 shrink-0 text-xs text-muted-foreground">
                             Set {i + 1}
                           </span>
+                          {/* min-w-0 lets these shrink below an input's
+                              intrinsic width — without it the row can't fit a
+                              phone and pushes the page sideways. */}
                           <Input
+                            className="min-w-0"
                             type="number"
                             min="0"
                             placeholder="Reps"
@@ -393,6 +398,7 @@ export function LogWorkoutDialog({
                             }
                           />
                           <Input
+                            className="min-w-0"
                             type="number"
                             min="0"
                             step="0.5"
@@ -402,10 +408,16 @@ export function LogWorkoutDialog({
                               updateSet(ex.id, i, "weight", e.target.value)
                             }
                           />
-                          <span className="w-16 shrink-0">
+                          <span className="w-8 shrink-0">
                             {pr && (
-                              <span className="flex items-center gap-1 text-xs font-medium text-status-good">
-                                <Trophy className="h-3 w-3" /> PR
+                              <span
+                                className="flex items-center gap-1 text-xs font-medium text-status-good"
+                                title="New personal record"
+                              >
+                                <Trophy className="h-3 w-3" />
+                                <span className="sr-only">
+                                  New personal record
+                                </span>
                               </span>
                             )}
                           </span>

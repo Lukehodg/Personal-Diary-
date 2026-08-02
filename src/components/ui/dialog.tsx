@@ -34,7 +34,9 @@ function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+          // max-w guard keeps any dialog inside the viewport on a phone, so
+          // a wide child can never push the page into horizontal scroll.
+          "fixed left-1/2 top-1/2 z-50 grid w-full max-w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 gap-4 border bg-background p-4 shadow-lg duration-200 sm:max-w-lg sm:rounded-lg sm:p-6",
           className
         )}
         {...props}

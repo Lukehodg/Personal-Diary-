@@ -11,6 +11,10 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
+      // Registered by hand in main.tsx instead. The same bundle runs inside
+      // the iOS wrapper, which serves from capacitor:// — a scheme that has
+      // no service worker support, so the injected script would throw there.
+      injectRegister: null,
       includeAssets: ["favicon.svg", "app-icon.svg"],
       workbox: {
         // The whole app is static and small, so precache it all — that's what
