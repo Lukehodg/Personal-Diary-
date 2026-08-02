@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # Type-checks and builds exactly as Cloudflare Pages will, so a broken
+      # build is caught here rather than on the deployed site.
+      - run: npm run build
+
+      - name: Check the PWA artefacts were emitted
+        run: |
+          for f in dist/index.html dist/sw.js dist/manifest.webmanifest \
+                   dist/_redirects dist/_headers; do
+            test -f "$f" || { echo "missing $f"; exit 1; }
+          done
+          echo "build output looks complete"

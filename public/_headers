@@ -1,0 +1,17 @@
+# Vite fingerprints these filenames, so they can be cached forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# These must never be served stale. The service worker is what decides
+# whether a new version exists at all — cache it and the app can get stuck
+# on an old build indefinitely, with no way for the user to force an update.
+/sw.js
+  Cache-Control: no-cache
+/registerSW.js
+  Cache-Control: no-cache
+/workbox-*.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache

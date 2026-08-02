@@ -137,6 +137,59 @@ The app is a PWA. Open it in a mobile browser and choose "Add to Home Screen"
 entirely offline — useful in gyms with no signal, since all your data is local
 anyway.
 
+Installing needs the app served over HTTPS, so deploy it first.
+
+## Deploying
+
+The build is a folder of static files — no server, no database, no environment
+variables. Hosting only ever serves those files; your workouts, diary entries
+and measurements stay in your browser's `localStorage` and never reach the
+host.
+
+### Cloudflare Pages (recommended)
+
+In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to
+Git**, pick this repository, then set
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm run build` |
+| Output directory | `dist` |
+| Node version | picked up from `.nvmrc` (22) |
+
+Leave everything else at its default and deploy. Every push to the connected
+branch rebuilds automatically.
+
+**Pick a project name without a trailing hyphen** — the repository is called
+`personal-diary-`, and a trailing hyphen isn't valid in a subdomain, so
+something like `workout-diary` gives you `workout-diary.pages.dev`.
+
+Netlify and Vercel work identically with the same build command and output
+directory.
+
+### Why root-path hosting matters
+
+`public/_redirects` and `public/_headers` are Cloudflare Pages (and Netlify)
+conventions, copied into `dist/` at build time:
+
+- **`_redirects`** serves `index.html` for any unmatched path. Real files —
+  `sw.js`, the manifest, everything under `/assets` — still win, since static
+  assets are matched first.
+- **`_headers`** caches fingerprinted assets forever but marks the service
+  worker, `index.html` and the manifest `no-cache`. Without that, a cached
+  service worker can pin the app to an old build with no way for you to
+  update it.
+
+The web app manifest uses `start_url: "/"` and `scope: "/"`, which assumes the
+app sits at the root of its domain — true on `*.pages.dev`, Netlify and
+Vercel.
+
+**GitHub Pages needs extra work**, because it would serve this at
+`<user>.github.io/personal-diary-/`. That requires `base: "/personal-diary-/"`
+in `vite.config.ts`, matching `start_url`/`scope`/icon paths in the manifest,
+and a `404.html` fallback. It's all doable, just config the other hosts don't
+need.
+
 ## Garmin import
 
 Garmin's live Health API is only licensed to approved companies, so this app

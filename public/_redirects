@@ -1,0 +1,4 @@
+# Single-page app: serve index.html for any path that isn't a real file.
+# Cloudflare Pages matches static assets first, so sw.js, the manifest and
+# everything under /assets still resolve normally.
+/*  /index.html  200
