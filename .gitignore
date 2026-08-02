@@ -32,3 +32,4 @@ dist-ssr
 DerivedData
 *.xcuserstate
 .swiftpm
+__pycache__
