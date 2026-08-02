@@ -199,33 +199,45 @@ runners bill at 10× minutes).
 
 **One-time setup.** All of it is doable from a Windows machine.
 
-1. **Create the app record.** In
-   [App Store Connect](https://appstoreconnect.apple.com) → **Apps** → **+** →
-   **New App**. Platform iOS, bundle ID `com.lukehodg.workoutdiary` (register
-   it first under **Certificates, Identifiers & Profiles → Identifiers** if it
-   isn't in the dropdown), and any SKU.
+1. **Register the bundle identifier.** At
+   [developer.apple.com → Identifiers](https://developer.apple.com/account/resources/identifiers/list),
+   click **+** → **App IDs** → **App**. Give it a description (Apple rejects
+   `&`, `@` and other punctuation here) and set an **Explicit** bundle ID of
+   `com.lukehodg.workoutdiary`. Tick **HealthKit** under capabilities if you
+   plan to add the Health integration later.
 
-2. **Create an API key.** App Store Connect → **Users and Access** →
+   This has to come first — App Store Connect only offers identifiers that
+   already exist.
+
+2. **Create the app record.** In
+   [App Store Connect](https://appstoreconnect.apple.com) → **Apps** → **+** →
+   **New App**. Platform iOS, pick the bundle ID from step 1, any SKU.
+
+   The **Name** must be unique across the whole App Store, so "Workouts" is
+   long gone. It's only the store listing label — the name under the icon on
+   your phone comes from the app itself and stays "Workouts" regardless.
+
+3. **Create an API key.** App Store Connect → **Users and Access** →
    **Integrations** → **App Store Connect API** → **+**. Give it the
    **App Manager** role. Download the `.p8` file — Apple only lets you
    download it once. Note the **Key ID** and the **Issuer ID** shown on that
    page.
 
-3. **Find your Team ID.** Top right of the
+4. **Find your Team ID.** Top right of the
    [Apple Developer](https://developer.apple.com/account) account page, or
    under Membership details. Ten characters, like `A1B2C3D4E5`.
 
-4. **Add four repository secrets**, under **Settings → Secrets and variables →
+5. **Add four repository secrets**, under **Settings → Secrets and variables →
    Actions** in GitHub:
 
    | Secret | Value |
    | --- | --- |
-   | `ASC_KEY_ID` | the Key ID from step 2 |
-   | `ASC_ISSUER_ID` | the Issuer ID from step 2 |
+   | `ASC_KEY_ID` | the Key ID from step 3 |
+   | `ASC_ISSUER_ID` | the Issuer ID from step 3 |
    | `ASC_PRIVATE_KEY` | the entire contents of the `.p8` file, including the `BEGIN`/`END` lines |
-   | `APPLE_TEAM_ID` | the Team ID from step 3 |
+   | `APPLE_TEAM_ID` | the Team ID from step 4 |
 
-5. **Run the workflow.** Actions → **iOS TestFlight** → **Run workflow**.
+6. **Run the workflow.** Actions → **iOS TestFlight** → **Run workflow**.
 
 Once it finishes, the build appears in App Store Connect under **TestFlight**
 after a few minutes of processing. Add yourself as an internal tester, install
