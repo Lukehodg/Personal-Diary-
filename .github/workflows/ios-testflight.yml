@@ -96,7 +96,12 @@ jobs:
         # credentials, missing permissions" — two problems that otherwise
         # look identical.
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check pyjwt cryptography
+          # macos-15's system Python refuses a bare `pip install` (PEP 668,
+          # "externally managed environment") — needs its own venv rather
+          # than --break-system-packages touching the runner's Python.
+          python3 -m venv "$RUNNER_TEMP/asc-venv"
+          source "$RUNNER_TEMP/asc-venv/bin/activate"
+          pip install --quiet --disable-pip-version-check pyjwt cryptography
           python3 ios/verify_asc_key.py
 
       - name: Archive
