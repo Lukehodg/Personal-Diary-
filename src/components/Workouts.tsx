@@ -5,6 +5,7 @@ import {
   Dumbbell,
   Flame,
   Heart,
+  Pencil,
   Play,
   Plus,
   Route,
@@ -31,7 +32,8 @@ import type { Workout, WorkoutTemplate } from "@/lib/types"
 interface WorkoutsProps {
   workouts: Workout[]
   templates: WorkoutTemplate[]
-  onAdd: (workout: Workout) => void
+  /** Upsert: replaces the workout with a matching id, otherwise appends. */
+  onSave: (workout: Workout) => void
   onImport: (workouts: Workout[]) => void
   onDelete: (id: string) => void
   onSaveTemplate: (template: WorkoutTemplate) => void
@@ -51,7 +53,7 @@ function hasStats(w: Workout): boolean {
 export function Workouts({
   workouts,
   templates,
-  onAdd,
+  onSave,
   onImport,
   onDelete,
   onSaveTemplate,
@@ -61,14 +63,23 @@ export function Workouts({
   const [activeTemplate, setActiveTemplate] = useState<WorkoutTemplate | null>(
     null
   )
+  const [editing, setEditing] = useState<Workout | null>(null)
 
   const openBlank = () => {
     setActiveTemplate(null)
+    setEditing(null)
     setOpen(true)
   }
 
   const openFromTemplate = (template: WorkoutTemplate) => {
     setActiveTemplate(template)
+    setEditing(null)
+    setOpen(true)
+  }
+
+  const openForEdit = (workout: Workout) => {
+    setActiveTemplate(null)
+    setEditing(workout)
     setOpen(true)
   }
 
@@ -101,10 +112,14 @@ export function Workouts({
 
       <LogWorkoutDialog
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={(o) => {
+          setOpen(o)
+          if (!o) setEditing(null)
+        }}
         workouts={workouts}
         template={activeTemplate}
-        onSave={onAdd}
+        editing={editing}
+        onSave={onSave}
         onSaveTemplate={onSaveTemplate}
       />
 
@@ -194,6 +209,14 @@ export function Workouts({
                       >
                         <CalendarPlus />
                       </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openForEdit(w)}
+                      aria-label={`Edit ${w.name}`}
+                    >
+                      <Pencil />
                     </Button>
                     <Button
                       variant="ghost"

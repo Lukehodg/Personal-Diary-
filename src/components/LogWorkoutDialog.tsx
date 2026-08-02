@@ -44,11 +44,31 @@ function emptyExercise(name = ""): ExerciseDraft {
   return { id: newId(), name, sets: [{ reps: "", weight: "" }] }
 }
 
+/** Turn a saved workout back into editable form state. */
+function toDrafts(workout: Workout): ExerciseDraft[] {
+  if (workout.exercises.length === 0) return [emptyExercise()]
+  return workout.exercises.map((ex) => ({
+    id: ex.id,
+    name: ex.name,
+    sets:
+      ex.sets.length > 0
+        ? ex.sets.map((s) => ({
+            reps: String(s.reps),
+            // Bodyweight sets are stored as 0; show them blank so the field
+            // reads the same as when it was first entered.
+            weight: s.weight > 0 ? String(s.weight) : "",
+          }))
+        : [{ reps: "", weight: "" }],
+  }))
+}
+
 interface LogWorkoutDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workouts: Workout[]
   template: WorkoutTemplate | null
+  /** Set to edit an existing workout in place; null logs a new one. */
+  editing: Workout | null
   onSave: (workout: Workout) => void
   onSaveTemplate: (template: WorkoutTemplate) => void
 }
@@ -58,6 +78,7 @@ export function LogWorkoutDialog({
   onOpenChange,
   workouts,
   template,
+  editing,
   onSave,
   onSaveTemplate,
 }: LogWorkoutDialogProps) {
@@ -71,6 +92,12 @@ export function LogWorkoutDialog({
   const [exercises, setExercises] = useState<ExerciseDraft[]>([emptyExercise()])
   const [pickerFor, setPickerFor] = useState<string | null>(null)
 
+  // History for PR checks and last-session recall must leave out the workout
+  // being edited — otherwise it compares against itself, so no set ever reads
+  // as a record and "last time" shows the very session you're changing.
+  const historyWorkouts = editing
+    ? workouts.filter((w) => w.id !== editing.id)
+    : workouts
   const knownExercises = exerciseHistory(workouts)
 
   const resetForm = () => {
@@ -83,10 +110,19 @@ export function LogWorkoutDialog({
     setExercises([emptyExercise()])
   }
 
-  // Prefill from a template each time the dialog is opened with one.
+  // Prefill whenever the dialog opens, from the workout being edited or from
+  // a template.
   useEffect(() => {
     if (!open) return
-    if (template) {
+    if (editing) {
+      setName(editing.name)
+      setDate(editing.date)
+      setType(editing.type)
+      setDuration(editing.durationMin > 0 ? String(editing.durationMin) : "")
+      setNotes(editing.notes)
+      setSaveAsTemplate(false)
+      setExercises(toDrafts(editing))
+    } else if (template) {
       setName(template.name)
       setType(template.type)
       setExercises(
@@ -98,7 +134,7 @@ export function LogWorkoutDialog({
       resetForm()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, template])
+  }, [open, template, editing])
 
   const updateExercise = (id: string, patch: Partial<ExerciseDraft>) => {
     setExercises((prev) =>
@@ -143,16 +179,25 @@ export function LogWorkoutDialog({
   const handleSave = () => {
     if (!name.trim() || !date) return
     const cleanExercises = buildExercises()
+
+    // Editing keeps the original id so backups still merge cleanly, and keeps
+    // Garmin's heart-rate and distance data — you should be able to fix a
+    // title without losing what the watch recorded. The start time is dropped
+    // if the date moved, since it encodes the old one.
+    const dateChanged = editing ? editing.date !== date : false
     onSave({
-      id: newId(),
+      ...editing,
+      id: editing?.id ?? newId(),
       date,
       name: name.trim(),
       type,
       durationMin: Number(duration) || 0,
       exercises: cleanExercises,
       notes: notes.trim(),
-      source: "manual",
+      source: editing?.source ?? "manual",
+      startTime: dateChanged ? undefined : editing?.startTime,
     })
+
     if (saveAsTemplate) {
       onSaveTemplate({
         id: newId(),
@@ -170,11 +215,16 @@ export function LogWorkoutDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {template ? `Log ${template.name}` : "Log a workout"}
+            {editing
+              ? "Edit workout"
+              : template
+                ? `Log ${template.name}`
+                : "Log a workout"}
           </DialogTitle>
           <DialogDescription>
-            Record what you did, how long it took, and the details of each
-            exercise.
+            {editing
+              ? "Change anything that isn't right. Records and volume update to match."
+              : "Record what you did, how long it took, and the details of each exercise."}
           </DialogDescription>
         </DialogHeader>
 
@@ -252,7 +302,7 @@ export function LogWorkoutDialog({
             <Label>Exercises</Label>
             {exercises.map((ex) => {
               const last = ex.name.trim()
-                ? lastSessionFor(workouts, ex.name)
+                ? lastSessionFor(historyWorkouts, ex.name)
                 : null
               const info = ex.name.trim() ? classifyExercise(ex.name) : null
               return (
@@ -326,7 +376,7 @@ export function LogWorkoutDialog({
                       }
                       const pr =
                         ex.name.trim() && parsed.reps > 0 && parsed.weight > 0
-                          ? isNewPR(workouts, ex.name, parsed)
+                          ? isNewPR(historyWorkouts, ex.name, parsed)
                           : false
                       return (
                         <div key={i} className="flex items-center gap-2">
@@ -396,7 +446,7 @@ export function LogWorkoutDialog({
             />
           </div>
 
-          {!template && (
+          {!template && !editing && (
             <label className="flex cursor-pointer items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -421,7 +471,7 @@ export function LogWorkoutDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={!name.trim() || !date}>
-            Save workout
+            {editing ? "Save changes" : "Save workout"}
           </Button>
         </DialogFooter>
       </DialogContent>

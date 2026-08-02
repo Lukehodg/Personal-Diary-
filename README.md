@@ -36,6 +36,8 @@ follows the taxonomy used by the
 - **Smart logging** — templates, exercise autocomplete, last-session recall,
   progressive-overload suggestions and live PR detection while you type. See
   [Logging a workout](#logging-a-workout) below.
+- **Editing** — every workout, diary entry, measurement and category can be
+  corrected in place. See [Editing](#editing) below.
 - **Rest timer** — presets with a screen wake lock so your phone doesn't sleep
   mid-session, plus a buzz and a beep when rest is up.
 - **Diary** — dated entries with a mood picker and free-form text.
@@ -118,6 +120,29 @@ The log dialog gets more useful the more history it has:
   up to 8 reps, then add the smallest jump (2.5 kg) and start again.
 - **Live PR detection** — a set that would beat your best estimated 1RM for that
   lift is flagged as you type it.
+
+## Editing
+
+The pencil icon on any workout, diary entry, measurement or measurement
+category reopens it with everything prefilled. Saving replaces the record
+rather than adding a second one, so a mistyped weight can be corrected without
+losing the session — records, muscle volume and training load all recompute
+from the corrected value.
+
+A few details that matter:
+
+- **Records keep their id**, so a backup taken before an edit still merges
+  cleanly with one taken after.
+- **While you're editing, that workout is left out of its own history.** The
+  "last time" hint shows the previous session rather than the one you're
+  changing, and PR detection compares against everything else rather than
+  against itself.
+- **Editing a Garmin import keeps its data.** Fixing a title or duration
+  leaves distance, calories and heart rate intact and the activity still
+  marked as imported. Moving it to a different date drops only its recorded
+  start time, since that encoded the old date.
+- **Renaming a measurement category keeps its readings**, because the category
+  keeps its id.
 
 ## Backup
 

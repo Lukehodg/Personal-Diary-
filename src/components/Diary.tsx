@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { BookOpen, Plus, Trash2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { BookOpen, Pencil, Plus, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,12 +27,14 @@ import { MOODS, type DiaryEntry, type Mood } from "@/lib/types"
 
 interface DiaryProps {
   entries: DiaryEntry[]
-  onAdd: (entry: DiaryEntry) => void
+  /** Upsert: replaces the entry with a matching id, otherwise appends. */
+  onSave: (entry: DiaryEntry) => void
   onDelete: (id: string) => void
 }
 
-export function Diary({ entries, onAdd, onDelete }: DiaryProps) {
+export function Diary({ entries, onSave, onDelete }: DiaryProps) {
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<DiaryEntry | null>(null)
   const [title, setTitle] = useState("")
   const [date, setDate] = useState(todayISO())
   const [mood, setMood] = useState<Mood>("good")
@@ -45,16 +47,40 @@ export function Diary({ entries, onAdd, onDelete }: DiaryProps) {
     setContent("")
   }
 
+  // Prefill from the entry being edited each time the dialog opens.
+  useEffect(() => {
+    if (!open) return
+    if (editing) {
+      setTitle(editing.title)
+      setDate(editing.date)
+      setMood(editing.mood)
+      setContent(editing.content)
+    } else {
+      resetForm()
+    }
+  }, [open, editing])
+
+  const openBlank = () => {
+    setEditing(null)
+    setOpen(true)
+  }
+
+  const openForEdit = (entry: DiaryEntry) => {
+    setEditing(entry)
+    setOpen(true)
+  }
+
   const handleSave = () => {
     if (!content.trim() || !date) return
-    onAdd({
-      id: newId(),
+    onSave({
+      id: editing?.id ?? newId(),
       date,
       title: title.trim(),
       content: content.trim(),
       mood,
     })
     resetForm()
+    setEditing(null)
     setOpen(false)
   }
 
@@ -70,15 +96,23 @@ export function Diary({ entries, onAdd, onDelete }: DiaryProps) {
             total
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            setOpen(o)
+            if (!o) setEditing(null)
+          }}
+        >
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={openBlank}>
               <Plus /> New entry
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
-              <DialogTitle>New diary entry</DialogTitle>
+              <DialogTitle>
+                {editing ? "Edit diary entry" : "New diary entry"}
+              </DialogTitle>
               <DialogDescription>
                 Capture how your day went — training, recovery, or anything
                 else on your mind.
@@ -146,7 +180,7 @@ export function Diary({ entries, onAdd, onDelete }: DiaryProps) {
                 onClick={handleSave}
                 disabled={!content.trim() || !date}
               >
-                Save entry
+                {editing ? "Save changes" : "Save entry"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -184,6 +218,14 @@ export function Diary({ entries, onAdd, onDelete }: DiaryProps) {
                           {mood.emoji} {mood.label}
                         </Badge>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openForEdit(entry)}
+                        aria-label={`Edit ${entry.title || "entry"}`}
+                      >
+                        <Pencil />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

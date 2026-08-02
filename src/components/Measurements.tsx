@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react"
+import { Pencil, Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -33,9 +33,11 @@ import type { MeasurementCategory, MeasurementEntry } from "@/lib/types"
 interface MeasurementsProps {
   categories: MeasurementCategory[]
   entries: MeasurementEntry[]
-  onAddEntry: (entry: MeasurementEntry) => void
+  /** Upsert: replaces the entry with a matching id, otherwise appends. */
+  onSaveEntry: (entry: MeasurementEntry) => void
   onDeleteEntry: (id: string) => void
-  onAddCategory: (category: MeasurementCategory) => void
+  /** Upsert: replaces the category with a matching id, otherwise appends. */
+  onSaveCategory: (category: MeasurementCategory) => void
   onDeleteCategory: (id: string) => void
 }
 
@@ -121,9 +123,9 @@ function TrendChart({
 export function Measurements({
   categories,
   entries,
-  onAddEntry,
+  onSaveEntry,
   onDeleteEntry,
-  onAddCategory,
+  onSaveCategory,
   onDeleteCategory,
 }: MeasurementsProps) {
   const [entryOpen, setEntryOpen] = useState(false)
@@ -131,6 +133,9 @@ export function Measurements({
   const [pendingDelete, setPendingDelete] = useState<MeasurementCategory | null>(
     null
   )
+  const [editingEntry, setEditingEntry] = useState<MeasurementEntry | null>(null)
+  const [editingCategory, setEditingCategory] =
+    useState<MeasurementCategory | null>(null)
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "")
   const [date, setDate] = useState(todayISO())
   const [value, setValue] = useState("")
@@ -152,10 +157,42 @@ export function Measurements({
   const categoryIsValid = categories.some((c) => c.id === categoryId)
   const canSaveEntry = categoryIsValid && Boolean(date) && valueIsValid
 
+  // Prefill both dialogs from whatever is being edited when they open.
+  useEffect(() => {
+    if (!entryOpen) return
+    if (editingEntry) {
+      setCategoryId(editingEntry.categoryId)
+      setDate(editingEntry.date)
+      setValue(String(editingEntry.value))
+      setNotes(editingEntry.notes)
+    } else {
+      setDate(todayISO())
+      setValue("")
+      setNotes("")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryOpen, editingEntry])
+
+  useEffect(() => {
+    if (!categoryOpen) return
+    setNewName(editingCategory?.name ?? "")
+    setNewUnit(editingCategory?.unit ?? "")
+  }, [categoryOpen, editingCategory])
+
+  const closeEntry = () => {
+    setEntryOpen(false)
+    setEditingEntry(null)
+  }
+
+  const closeCategory = () => {
+    setCategoryOpen(false)
+    setEditingCategory(null)
+  }
+
   const saveEntry = () => {
     if (!canSaveEntry) return
-    onAddEntry({
-      id: newId(),
+    onSaveEntry({
+      id: editingEntry?.id ?? newId(),
       categoryId,
       date,
       value: parsedValue,
@@ -164,19 +201,21 @@ export function Measurements({
     setValue("")
     setNotes("")
     setDate(todayISO())
-    setEntryOpen(false)
+    closeEntry()
   }
 
   const saveCategory = () => {
     if (!newName.trim() || !newUnit.trim()) return
-    onAddCategory({
-      id: newId(),
+    // Keeping the id on edit means existing readings stay attached, so
+    // renaming a category or fixing its unit never strands its history.
+    onSaveCategory({
+      id: editingCategory?.id ?? newId(),
       name: newName.trim(),
       unit: newUnit.trim(),
     })
     setNewName("")
     setNewUnit("")
-    setCategoryOpen(false)
+    closeCategory()
   }
 
   return (
@@ -189,18 +228,32 @@ export function Measurements({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Dialog open={categoryOpen} onOpenChange={setCategoryOpen}>
+          <Dialog
+            open={categoryOpen}
+            onOpenChange={(o) => {
+              setCategoryOpen(o)
+              if (!o) setEditingCategory(null)
+            }}
+          >
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                onClick={() => setEditingCategory(null)}
+              >
                 <Ruler /> New category
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-sm">
               <DialogHeader>
-                <DialogTitle>New measurement category</DialogTitle>
+                <DialogTitle>
+                  {editingCategory
+                    ? `Edit ${editingCategory.name}`
+                    : "New measurement category"}
+                </DialogTitle>
                 <DialogDescription>
-                  Anything you want to track over time — bicep, resting heart
-                  rate, sleep hours.
+                  {editingCategory
+                    ? "Renaming keeps every reading already recorded under it."
+                    : "Anything you want to track over time — bicep, resting heart rate, sleep hours."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4">
@@ -224,33 +277,43 @@ export function Measurements({
                 </div>
               </div>
               <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setCategoryOpen(false)}
-                >
+                <Button variant="outline" onClick={closeCategory}>
                   Cancel
                 </Button>
                 <Button
                   onClick={saveCategory}
                   disabled={!newName.trim() || !newUnit.trim()}
                 >
-                  Add category
+                  {editingCategory ? "Save changes" : "Add category"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
 
-          <Dialog open={entryOpen} onOpenChange={setEntryOpen}>
+          <Dialog
+            open={entryOpen}
+            onOpenChange={(o) => {
+              setEntryOpen(o)
+              if (!o) setEditingEntry(null)
+            }}
+          >
             <DialogTrigger asChild>
-              <Button disabled={categories.length === 0}>
+              <Button
+                disabled={categories.length === 0}
+                onClick={() => setEditingEntry(null)}
+              >
                 <Plus /> Add measurement
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Add a measurement</DialogTitle>
+                <DialogTitle>
+                  {editingEntry ? "Edit measurement" : "Add a measurement"}
+                </DialogTitle>
                 <DialogDescription>
-                  Record where you are today so the trend has something to show.
+                  {editingEntry
+                    ? "Correct the value, move it to another date, or file it under a different category."
+                    : "Record where you are today so the trend has something to show."}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4">
@@ -303,11 +366,11 @@ export function Measurements({
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setEntryOpen(false)}>
+                <Button variant="outline" onClick={closeEntry}>
                   Cancel
                 </Button>
                 <Button onClick={saveEntry} disabled={!canSaveEntry}>
-                  Save
+                  {editingEntry ? "Save changes" : "Save"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -410,6 +473,17 @@ export function Measurements({
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => {
+                          setEditingCategory(category)
+                          setCategoryOpen(true)
+                        }}
+                        aria-label={`Edit ${category.name} category`}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => setPendingDelete(category)}
                         aria-label={`Delete ${category.name} category`}
                       >
@@ -443,6 +517,18 @@ export function Measurements({
                               <span className="tabular-nums">
                                 {entry.value} {category.unit}
                               </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => {
+                                  setEditingEntry(entry)
+                                  setEntryOpen(true)
+                                }}
+                                aria-label={`Edit reading from ${formatDate(entry.date)}`}
+                              >
+                                <Pencil />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"

@@ -54,6 +54,13 @@ export default function App() {
     measurements,
   }
 
+  /** Replace the item sharing this id, or append it if it's new. */
+  function upsert<T extends { id: string }>(list: T[], item: T): T[] {
+    return list.some((existing) => existing.id === item.id)
+      ? list.map((existing) => (existing.id === item.id ? item : existing))
+      : [...list, item]
+  }
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
@@ -131,7 +138,7 @@ export default function App() {
             <Workouts
               workouts={workouts}
               templates={templates}
-              onAdd={(w) => setWorkouts((prev) => [...prev, w])}
+              onSave={(w) => setWorkouts((prev) => upsert(prev, w))}
               onImport={(imported) =>
                 setWorkouts((prev) => [...prev, ...imported])
               }
@@ -148,7 +155,7 @@ export default function App() {
           <TabsContent value="diary" className="mt-4">
             <Diary
               entries={entries}
-              onAdd={(e) => setEntries((prev) => [...prev, e])}
+              onSave={(e) => setEntries((prev) => upsert(prev, e))}
               onDelete={(id) =>
                 setEntries((prev) => prev.filter((e) => e.id !== id))
               }
@@ -159,12 +166,12 @@ export default function App() {
             <Measurements
               categories={measurementCategories}
               entries={measurements}
-              onAddEntry={(m) => setMeasurements((prev) => [...prev, m])}
+              onSaveEntry={(m) => setMeasurements((prev) => upsert(prev, m))}
               onDeleteEntry={(id) =>
                 setMeasurements((prev) => prev.filter((m) => m.id !== id))
               }
-              onAddCategory={(c) =>
-                setMeasurementCategories((prev) => [...prev, c])
+              onSaveCategory={(c) =>
+                setMeasurementCategories((prev) => upsert(prev, c))
               }
               onDeleteCategory={(id) => {
                 setMeasurementCategories((prev) =>
