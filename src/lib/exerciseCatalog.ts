@@ -149,48 +149,63 @@ function key(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ")
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/**
+ * Whole-word matchers for every catalogue term, longest first. Word bounds
+ * matter: without them the alias "dl" fires inside "midDLe delt raise" and
+ * "spin" inside "SPINal twist".
+ */
+const CONTAINMENT_MATCHERS: {
+  pattern: RegExp
+  length: number
+  exercise: CatalogExercise
+}[] = [...INDEX.entries()]
+  .map(([term, exercise]) => ({
+    pattern: new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(term)}(?:[^a-z0-9]|$)`),
+    length: term.length,
+    exercise,
+  }))
+  .sort((a, b) => b.length - a.length)
+
 /** Exact match on a catalogue name or one of its aliases. */
 export function lookupExercise(name: string): CatalogExercise | null {
   return INDEX.get(key(name)) ?? null
 }
 
 /**
- * Best-effort match for a name that isn't an exact hit — used for older log
- * entries and Garmin activity titles like "Morning Run". Prefers the longest
- * catalogue name contained in the input so "close grip bench press" doesn't
- * resolve to plain "bench press".
+ * Strict resolution, used wherever a name decides *identity* — personal
+ * records, progression history, template recall. Only an exact catalogue name
+ * or alias counts, so "bp" and "Bench press" share a record while "Bench",
+ * "Trap bar deadlift" and any other variant keep their own.
+ *
+ * Deliberately not fuzzy: a wrong guess here silently files a lift under
+ * another exercise's record, which is far worse than no match at all.
  */
 export function matchExercise(name: string): CatalogExercise | null {
+  return lookupExercise(name)
+}
+
+/**
+ * Lenient resolution, used only to work out which muscles a name trains.
+ * Falls back to the longest catalogue term appearing as whole words, so
+ * "Trap bar deadlift" is credited as deadlift work and the Garmin title
+ * "Morning Run" as running — without either of them merging into that
+ * exercise's records.
+ */
+export function classifyMatch(name: string): CatalogExercise | null {
   const exact = lookupExercise(name)
   if (exact) return exact
 
   const needle = key(name)
   if (!needle) return null
 
-  // A catalogue term appearing inside the input is the strong signal — it's
-  // how "Morning Run" resolves to Running. Longest wins so "close grip bench
-  // press" doesn't collapse into plain "bench press".
-  let contained: CatalogExercise | null = null
-  let containedLength = 0
-  for (const [term, exercise] of INDEX) {
-    if (needle.includes(term) && term.length > containedLength) {
-      contained = exercise
-      containedLength = term.length
-    }
+  for (const { pattern, exercise } of CONTAINMENT_MATCHERS) {
+    if (pattern.test(needle)) return exercise
   }
-  if (contained) return contained
-
-  // Otherwise treat it as partial typing and take the shortest term that
-  // starts with it, so "bul" finds "Bulgarian split squat".
-  let prefix: CatalogExercise | null = null
-  let prefixLength = Infinity
-  for (const [term, exercise] of INDEX) {
-    if (term.startsWith(needle) && term.length < prefixLength) {
-      prefix = exercise
-      prefixLength = term.length
-    }
-  }
-  return prefix
+  return null
 }
 
 /** Catalogue search for the picker: name and alias matches, ranked. */
@@ -215,5 +230,4 @@ export function searchExercises(
       const bStarts = b.name.toLowerCase().startsWith(q) ? 0 : 1
       return aStarts - bStarts || a.name.localeCompare(b.name)
     })
-    .slice(0, 60)
 }

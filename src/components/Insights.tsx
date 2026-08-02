@@ -304,9 +304,24 @@ export function Insights({ workouts, entries }: InsightsProps) {
           </CardHeader>
           <CardContent>
             {balance.volumes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No exercises logged in the last 30 days.
-              </p>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                {balance.unclassifiedSets > 0 ? (
+                  <>
+                    <p className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-status-warning" />
+                      None of the {balance.unclassifiedSets} sets logged in the
+                      last 30 days used an exercise name the catalogue
+                      recognises, so there's no volume to break down.
+                    </p>
+                    <p className="text-xs">
+                      Picking names from the catalogue (the magnifier next to
+                      each exercise) makes them count here.
+                    </p>
+                  </>
+                ) : (
+                  <p>No exercises logged in the last 30 days.</p>
+                )}
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="space-y-2">

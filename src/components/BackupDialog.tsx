@@ -16,12 +16,36 @@ import {
   parseBackup,
   totalOf,
   type BackupData,
+  type ImportCounts,
   type ImportResult,
 } from "@/lib/backup"
 
 interface BackupDialogProps {
   data: BackupData
   onRestore: (data: BackupData) => void
+}
+
+/**
+ * Lists only the kinds actually being added, so the sentence can never
+ * disagree with the item count on the button.
+ */
+function describeAdded(added: ImportCounts): string {
+  const parts = [
+    [added.workouts, "workout"],
+    [added.entries, "diary entry", "diary entries"],
+    [added.templates, "template"],
+    [added.measurementCategories, "measurement category", "measurement categories"],
+    [added.measurements, "measurement"],
+  ] as const
+
+  const phrases = parts
+    .filter(([count]) => count > 0)
+    .map(([count, singular, plural]) =>
+      count === 1 ? `1 ${singular}` : `${count} ${plural ?? `${singular}s`}`
+    )
+
+  if (phrases.length <= 1) return phrases[0] ?? "nothing"
+  return `${phrases.slice(0, -1).join(", ")} and ${phrases[phrases.length - 1]}`
 }
 
 export function BackupDialog({ data, onRestore }: BackupDialogProps) {
@@ -51,6 +75,7 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
     data.workouts.length === 0 &&
     data.entries.length === 0 &&
     data.templates.length === 0 &&
+    data.measurementCategories.length === 0 &&
     data.measurements.length === 0
 
   return (
@@ -120,13 +145,7 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
                     Everything in that backup is already in your log.
                   </span>
                 ) : (
-                  <>
-                    Ready to add <strong>{result.added.workouts}</strong>{" "}
-                    workouts, <strong>{result.added.entries}</strong> diary
-                    entries, <strong>{result.added.templates}</strong> templates
-                    and <strong>{result.added.measurements}</strong>{" "}
-                    measurements.
-                  </>
+                  <>Ready to add {describeAdded(result.added)}.</>
                 )}
               </p>
             )}

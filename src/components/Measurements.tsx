@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Ruler, Trash2, TrendingDown, TrendingUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -128,6 +128,9 @@ export function Measurements({
 }: MeasurementsProps) {
   const [entryOpen, setEntryOpen] = useState(false)
   const [categoryOpen, setCategoryOpen] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<MeasurementCategory | null>(
+    null
+  )
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "")
   const [date, setDate] = useState(todayISO())
   const [value, setValue] = useState("")
@@ -135,14 +138,27 @@ export function Measurements({
   const [newName, setNewName] = useState("")
   const [newUnit, setNewUnit] = useState("")
 
+  // The selected category can disappear underneath us when one is deleted, so
+  // fall back to whatever still exists rather than holding a dead id.
+  useEffect(() => {
+    if (!categories.some((c) => c.id === categoryId)) {
+      setCategoryId(categories[0]?.id ?? "")
+    }
+  }, [categories, categoryId])
+
+  const parsedValue = Number(value)
+  const valueIsValid =
+    value.trim() !== "" && Number.isFinite(parsedValue) && parsedValue >= 0
+  const categoryIsValid = categories.some((c) => c.id === categoryId)
+  const canSaveEntry = categoryIsValid && Boolean(date) && valueIsValid
+
   const saveEntry = () => {
-    const parsed = Number(value)
-    if (!categoryId || !date || !value || Number.isNaN(parsed)) return
+    if (!canSaveEntry) return
     onAddEntry({
       id: newId(),
       categoryId,
       date,
-      value: parsed,
+      value: parsedValue,
       notes: notes.trim(),
     })
     setValue("")
@@ -260,6 +276,7 @@ export function Measurements({
                       id="m-value"
                       type="number"
                       step="0.1"
+                      min="0"
                       placeholder="82.5"
                       value={value}
                       onChange={(e) => setValue(e.target.value)}
@@ -289,7 +306,7 @@ export function Measurements({
                 <Button variant="outline" onClick={() => setEntryOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={saveEntry} disabled={!value || !categoryId}>
+                <Button onClick={saveEntry} disabled={!canSaveEntry}>
                   Save
                 </Button>
               </DialogFooter>
@@ -297,6 +314,44 @@ export function Measurements({
           </Dialog>
         </div>
       </div>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(o) => !o && setPendingDelete(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete “{pendingDelete?.name}”?</DialogTitle>
+            <DialogDescription>
+              {(() => {
+                const count = pendingDelete
+                  ? entries.filter((e) => e.categoryId === pendingDelete.id)
+                      .length
+                  : 0
+                return count === 0
+                  ? "This category has no readings. It can be recreated at any time."
+                  : `This also deletes ${count} ${
+                      count === 1 ? "reading" : "readings"
+                    }, and can't be undone.`
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingDelete) onDeleteCategory(pendingDelete.id)
+                setPendingDelete(null)
+              }}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {categories.length === 0 ? (
         <Card>
@@ -355,7 +410,7 @@ export function Measurements({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onDeleteCategory(category.id)}
+                        onClick={() => setPendingDelete(category)}
                         aria-label={`Delete ${category.name} category`}
                       >
                         <Trash2 />
