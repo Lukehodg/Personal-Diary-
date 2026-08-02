@@ -87,6 +87,18 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "API key installed for team $TEAM_ID"
 
+      - name: Verify the API key can authenticate
+        # xcodebuild's own error for a rejected key is a bare 401 on an
+        # internal endpoint with no explanation, which is exactly what
+        # happened the first time this pipeline reached a real archive.
+        # Calling Apple's API directly first gets their actual JSON error
+        # back, which distinguishes "wrong credentials" from "right
+        # credentials, missing permissions" — two problems that otherwise
+        # look identical.
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pyjwt cryptography
+          python3 ios/verify_asc_key.py
+
       - name: Archive
         run: |
           # CURRENT_PROJECT_VERSION comes from the run number: TestFlight

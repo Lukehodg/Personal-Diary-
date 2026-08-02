@@ -219,9 +219,16 @@ runners bill at 10× minutes).
 
 3. **Create an API key.** App Store Connect → **Users and Access** →
    **Integrations** → **App Store Connect API** → **+**. Give it the
-   **App Manager** role. Download the `.p8` file — Apple only lets you
-   download it once. Note the **Key ID** and the **Issuer ID** shown on that
-   page.
+   **Admin** role — the automatic signing this workflow relies on needs to
+   manage certificates and provisioning profiles, and a more restricted role
+   (App Manager, Developer) may not carry that access, which surfaces as a
+   401 during the archive step with no further explanation. Download the
+   `.p8` file — Apple only lets you download it once. Note the **Key ID** and
+   the **Issuer ID** shown on that page.
+
+   If a run ever fails with `App Store Connect rejected the API key`, the
+   **Verify the API key can authenticate** step will have printed Apple's own
+   error above it — that's the one to act on.
 
 4. **Find your Team ID.** Top right of the
    [Apple Developer](https://developer.apple.com/account) account page, or
