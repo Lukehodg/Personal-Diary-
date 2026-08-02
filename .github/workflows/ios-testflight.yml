@@ -46,30 +46,52 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_PRIVATE_KEY" ]; then
-            echo "::error::Missing App Store Connect secrets. See the iOS section of the README."
+          # Secrets pasted from a browser routinely pick up a trailing newline,
+          # and a .p8 copied on Windows arrives with CRLF line endings. Both
+          # break things further down — an unquoted redirect target with
+          # whitespace is an "ambiguous redirect", and CRLF fails the PEM
+          # parse. Normalise here rather than trusting a clean paste.
+          KEY_ID="$(printf '%s' "$ASC_KEY_ID" | tr -d '[:space:]')"
+          ISSUER_ID="$(printf '%s' "$ASC_ISSUER_ID" | tr -d '[:space:]')"
+          TEAM_ID="$(printf '%s' "$APPLE_TEAM_ID" | tr -d '[:space:]')"
+
+          missing=""
+          [ -n "$KEY_ID" ] || missing="$missing ASC_KEY_ID"
+          [ -n "$ISSUER_ID" ] || missing="$missing ASC_ISSUER_ID"
+          [ -n "$TEAM_ID" ] || missing="$missing APPLE_TEAM_ID"
+          [ -n "$ASC_PRIVATE_KEY" ] || missing="$missing ASC_PRIVATE_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing — see the iOS section of the README."
             exit 1
           fi
-          mkdir -p ~/private_keys
-          # The secret holds the .p8 file's contents verbatim.
-          printf '%s' "$ASC_PRIVATE_KEY" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
-          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
 
-      - name: Set the build number
-        # TestFlight rejects a build number it has already seen, so use the
-        # run number, which only ever goes up.
-        run: |
-          /usr/libexec/PlistBuddy -c "Print" ios/App/App/Info.plist > /dev/null
-          cd ios/App
-          xcrun agvtool new-version -all ${{ github.run_number }}
+          KEY_DIR="$HOME/private_keys"
+          mkdir -p "$KEY_DIR"
+          KEY_PATH="$KEY_DIR/AuthKey_${KEY_ID}.p8"
+          printf '%s\n' "$ASC_PRIVATE_KEY" | tr -d '\r' | sed -e '/^[[:space:]]*$/d' > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+
+          if ! grep -q 'BEGIN PRIVATE KEY' "$KEY_PATH"; then
+            echo "::error::ASC_PRIVATE_KEY doesn't look like a .p8 file. Paste the whole file, including the -----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY----- lines."
+            exit 1
+          fi
+
+          # Hand the cleaned values to the later steps.
+          {
+            echo "KEY_ID=$KEY_ID"
+            echo "ISSUER_ID=$ISSUER_ID"
+            echo "TEAM_ID=$TEAM_ID"
+            echo "KEY_PATH=$KEY_PATH"
+          } >> "$GITHUB_ENV"
+          echo "API key installed for team $TEAM_ID"
 
       - name: Archive
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          # CURRENT_PROJECT_VERSION comes from the run number: TestFlight
+          # rejects a build number it has already accepted, and run numbers
+          # only ever go up.
           xcodebuild archive \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
@@ -77,45 +99,42 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Automatic
 
       - name: Export the IPA
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          # teamID isn't in the committed plist, so inject it here rather than
-          # keeping the team identifier in the repository.
+          # teamID is injected here rather than committed to the repository.
           /usr/libexec/PlistBuddy -c "Add :teamID string $TEAM_ID" ios/ExportOptions.plist
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/App.xcarchive" \
             -exportOptionsPlist ios/ExportOptions.plist \
             -exportPath "$RUNNER_TEMP/export" \
             -allowProvisioningUpdates \
-            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
-            -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyPath "$KEY_PATH" \
+            -authenticationKeyID "$KEY_ID" \
+            -authenticationKeyIssuerID "$ISSUER_ID"
 
       - name: Upload to TestFlight
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
-          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
-          echo "Uploading $IPA"
-          # altool looks for keys in these directories by convention.
-          mkdir -p ~/.appstoreconnect/private_keys
-          cp ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 ~/.appstoreconnect/private_keys/
+          IPA="$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)"
+          if [ -z "$IPA" ]; then
+            echo "::error::No .ipa was produced by the export step."
+            exit 1
+          fi
+          echo "Uploading $(basename "$IPA")"
+          # altool looks for keys in this directory by convention.
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          cp "$KEY_PATH" "$HOME/.appstoreconnect/private_keys/"
           xcrun altool --upload-app \
             --type ios \
             --file "$IPA" \
-            --apiKey "$ASC_KEY_ID" \
-            --apiIssuer "$ASC_ISSUER_ID"
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID"
 
       - name: Keep the IPA as an artifact
         if: always()
