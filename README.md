@@ -170,6 +170,12 @@ Installing needs the app served over HTTPS, so deploy it first.
 
 ### As a native iOS app
 
+> **Needs macOS.** Xcode is Mac-only, so `npm run ios` cannot work on Windows
+> or Linux — it ends in `cap open ios`, which has nothing to open. Without a
+> Mac the options are a borrowed or rented one, or building on GitHub Actions'
+> macOS runners and installing through TestFlight. An Apple Developer account
+> alone isn't enough; it's the hardware that's the constraint.
+
 [Capacitor](https://capacitorjs.com) wraps the same build in a real iOS app.
 Worth it for two reasons: the data lives in the app's own container rather
 than in Safari's storage, which iOS is far more willing to reclaim; and it's
