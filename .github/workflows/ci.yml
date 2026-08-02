@@ -27,7 +27,13 @@ jobs:
       - name: Check the PWA artefacts were emitted
         run: |
           for f in dist/index.html dist/sw.js dist/manifest.webmanifest \
-                   dist/_redirects dist/_headers; do
+                   dist/_headers; do
             test -f "$f" || { echo "missing $f"; exit 1; }
           done
+          # Workers rejects a `/* /index.html 200` catch-all as an infinite
+          # loop; SPA fallback belongs in wrangler.jsonc instead.
+          if [ -f dist/_redirects ] && grep -qE '^\s*/\*\s+/index\.html' dist/_redirects; then
+            echo "_redirects has a catch-all that Cloudflare Workers will reject"
+            exit 1
+          fi
           echo "build output looks complete"

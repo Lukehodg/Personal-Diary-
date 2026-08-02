@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "personal-diary",
+  "compatibility_date": "2026-08-02",
+  "assets": {
+    "directory": "./dist",
+    // Serves index.html for any path that isn't a real asset. This replaces
+    // a `_redirects` catch-all — Workers rejects `/* /index.html 200` as an
+    // infinite loop, because it already strips `.html` and `/index` itself.
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

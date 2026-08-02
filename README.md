@@ -146,42 +146,48 @@ variables. Hosting only ever serves those files; your workouts, diary entries
 and measurements stay in your browser's `localStorage` and never reach the
 host.
 
-### Cloudflare Pages (recommended)
+### Cloudflare Workers (current setup)
 
-In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to
-Git**, pick this repository, then set
+Connect the repository in the Cloudflare dashboard under **Workers & Pages**.
+The build settings are
 
 | Setting | Value |
 | --- | --- |
 | Build command | `npm run build` |
+| Deploy command | `npx wrangler deploy` |
 | Output directory | `dist` |
 | Node version | picked up from `.nvmrc` (22) |
 
-Leave everything else at its default and deploy. Every push to the connected
-branch rebuilds automatically.
+`wrangler.jsonc` is committed, so the project name, compatibility date and
+asset handling are version-controlled rather than re-detected on every build.
+Every push to `main` redeploys.
 
-**Pick a project name without a trailing hyphen** — the repository is called
-`personal-diary-`, and a trailing hyphen isn't valid in a subdomain, so
-something like `workout-diary` gives you `workout-diary.pages.dev`.
+**The project name has no trailing hyphen.** The repository is
+`personal-diary-`, but a trailing hyphen isn't valid in a subdomain, so the
+Worker is called `personal-diary`.
 
-Netlify and Vercel work identically with the same build command and output
-directory.
+Netlify and Vercel also work, with build command `npm run build` and output
+directory `dist` — see the note on `_redirects` below if you switch.
 
-### Why root-path hosting matters
+### SPA fallback and caching
 
-`public/_redirects` and `public/_headers` are Cloudflare Pages (and Netlify)
-conventions, copied into `dist/` at build time:
+`not_found_handling: "single-page-application"` in `wrangler.jsonc` serves
+`index.html` for any path that isn't a real asset.
 
-- **`_redirects`** serves `index.html` for any unmatched path. Real files —
-  `sw.js`, the manifest, everything under `/assets` — still win, since static
-  assets are matched first.
-- **`_headers`** caches fingerprinted assets forever but marks the service
-  worker, `index.html` and the manifest `no-cache`. Without that, a cached
-  service worker can pin the app to an old build with no way for you to
-  update it.
+**Do not add a `_redirects` file with a `/* /index.html 200` catch-all.**
+Cloudflare Workers rejects it outright — *"Infinite loop detected in this
+rule"* — because Workers already strips `.html` and `/index`, so the rule
+re-triggers itself and the whole deploy fails. That catch-all is the right
+answer on Netlify and on Cloudflare Pages, but not here. CI fails the build if
+one reappears.
+
+`public/_headers` is copied into `dist/` and does still apply: fingerprinted
+assets are cached forever, while the service worker, `index.html` and the
+manifest are `no-cache`. Without that, a cached service worker can pin the app
+to an old build with no way for you to update it.
 
 The web app manifest uses `start_url: "/"` and `scope: "/"`, which assumes the
-app sits at the root of its domain — true on `*.pages.dev`, Netlify and
+app sits at the root of its domain — true on `*.workers.dev`, Netlify and
 Vercel.
 
 **GitHub Pages needs extra work**, because it would serve this at
