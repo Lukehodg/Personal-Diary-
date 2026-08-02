@@ -149,7 +149,7 @@ export function Workouts({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 rounded-l-none"
+                    className="h-10 w-10 rounded-l-none"
                     onClick={() => onDeleteTemplate(t.id)}
                     aria-label={`Delete ${t.name} template`}
                   >

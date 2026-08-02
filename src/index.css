@@ -2,59 +2,72 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Quiet Utility, dark-grounded with an orange accent.
+ *
+ * Neutrals carry a slight warm bias rather than being pure grey, so they sit
+ * with the accent instead of fighting it. The accent is spent sparingly — the
+ * primary action, the active tab, PR moments — and never as decoration.
+ *
+ * Accent foreground flips by theme out of necessity, not preference: white on
+ * this orange is 2.84:1 (fails), near-black is 6.56:1 (passes). The light
+ * theme uses a darker orange where white does pass, at 5.18:1.
+ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  --background: #fdfcfb;
+  --foreground: #1a1714;
+  --card: #ffffff;
+  --card-foreground: #1a1714;
+  --popover: #ffffff;
+  --popover-foreground: #1a1714;
+  --primary: #c2410c;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f2ef;
+  --secondary-foreground: #1a1714;
+  --muted: #f4f2ef;
+  --muted-foreground: #6b6259;
+  --accent: #f4f2ef;
+  --accent-foreground: #1a1714;
+  --destructive: #c1443a;
+  --destructive-foreground: #ffffff;
+  --border: #e7e3dd;
+  --input: #e7e3dd;
+  --ring: #c2410c;
+  --radius: 0.75rem;
 
   /* Status tokens — always paired with an icon and a text label, never
-     carrying meaning by colour alone. */
-  --status-good: oklch(0.58 0.13 155);
-  --status-warning: oklch(0.68 0.15 75);
-  --status-critical: oklch(0.577 0.245 27.325);
+     carrying meaning by colour alone. Validated for CVD separation and
+     contrast against this surface. */
+  --status-good: #2f7d4f;
+  --status-warning: #b8860b;
+  --status-critical: #c1443a;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: #12100e;
+  --foreground: #f5f1ec;
+  --card: #1b1815;
+  --card-foreground: #f5f1ec;
+  --popover: #1b1815;
+  --popover-foreground: #f5f1ec;
+  --primary: #ff6b35;
+  --primary-foreground: #17120f;
+  --secondary: #252119;
+  --secondary-foreground: #f5f1ec;
+  --muted: #252119;
+  --muted-foreground: #a39a8f;
+  --accent: #252119;
+  --accent-foreground: #f5f1ec;
+  --destructive: #ec5570;
+  --destructive-foreground: #17120f;
+  --border: #2e2921;
+  --input: #332d24;
+  --ring: #ff6b35;
 
-  --status-good: oklch(0.7 0.14 155);
-  --status-warning: oklch(0.78 0.15 75);
-  --status-critical: oklch(0.704 0.191 22.216);
+  --status-good: #2fa87a;
+  --status-warning: #c99a24;
+  --status-critical: #ec5570;
 }
 
 @theme inline {
@@ -80,8 +93,8 @@
   --color-status-good: var(--status-good);
   --color-status-warning: var(--status-warning);
   --color-status-critical: var(--status-critical);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
@@ -92,5 +105,14 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    /* Stops iOS zooming the page when a number field takes focus, and keeps
+       the app from being dragged around like a web page. */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+  /* Figures line up in columns all over this app — stat tiles, set rows,
+     measurement tables — so default them to tabular. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }

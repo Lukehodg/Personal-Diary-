@@ -1,24 +1,32 @@
 import { useEffect, useId, useState } from "react"
-import { Bookmark, History, Plus, Search, Trash2, Trophy } from "lucide-react"
+import {
+  Bookmark,
+  Dumbbell,
+  HeartPulse,
+  History,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+  Trophy,
+  Volleyball,
+  Wind,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { SegmentedControl } from "@/components/ui/segmented-control"
+import { Stepper } from "@/components/ui/stepper"
 import { Textarea } from "@/components/ui/textarea"
 import { ExercisePicker } from "@/components/ExercisePicker"
 import { Badge } from "@/components/ui/badge"
@@ -27,12 +35,25 @@ import { classifyExercise, exerciseHistory } from "@/lib/exercises"
 import { muscleLabel } from "@/lib/wger"
 import { newId, todayISO } from "@/lib/store"
 import {
-  WORKOUT_TYPES,
   type Exercise,
   type Workout,
   type WorkoutTemplate,
   type WorkoutType,
 } from "@/lib/types"
+
+const TYPE_OPTIONS: {
+  value: WorkoutType
+  label: string
+  icon: React.ReactNode
+}[] = [
+  { value: "strength", label: "Strength", icon: <Dumbbell className="h-4 w-4" /> },
+  { value: "cardio", label: "Cardio", icon: <HeartPulse className="h-4 w-4" /> },
+  { value: "flexibility", label: "Mobility", icon: <Wind className="h-4 w-4" /> },
+  { value: "sports", label: "Sport", icon: <Volleyball className="h-4 w-4" /> },
+  { value: "other", label: "Other", icon: <MoreHorizontal className="h-4 w-4" /> },
+]
+
+const DURATION_PRESETS = [30, 45, 60, 90]
 
 interface ExerciseDraft {
   id: string
@@ -162,6 +183,16 @@ export function LogWorkoutDialog({
     )
   }
 
+  const removeSet = (exId: string, index: number) => {
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === exId
+          ? { ...ex, sets: ex.sets.filter((_, i) => i !== index) }
+          : ex
+      )
+    )
+  }
+
   const buildExercises = (): Exercise[] =>
     exercises
       .filter((ex) => ex.name.trim())
@@ -210,23 +241,31 @@ export function LogWorkoutDialog({
     onOpenChange(false)
   }
 
+  const namedExercises = exercises.filter((ex) => ex.name.trim()).length
+  const totalSets = exercises.reduce(
+    (sum, ex) => sum + ex.sets.filter((s) => s.reps !== "").length,
+    0
+  )
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>
-            {editing
-              ? "Edit workout"
-              : template
-                ? `Log ${template.name}`
-                : "Log a workout"}
-          </DialogTitle>
-          <DialogDescription>
-            {editing
-              ? "Change anything that isn't right. Records and volume update to match."
-              : "Record what you did, how long it took, and the details of each exercise."}
-          </DialogDescription>
-        </DialogHeader>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent>
+        <SheetHeader>
+          <div className="min-w-0">
+            <SheetTitle>
+              {editing
+                ? "Edit workout"
+                : template
+                  ? template.name
+                  : "Log a workout"}
+            </SheetTitle>
+            <SheetDescription>
+              {namedExercises > 0
+                ? `${namedExercises} ${namedExercises === 1 ? "exercise" : "exercises"}${totalSets > 0 ? ` · ${totalSets} ${totalSets === 1 ? "set" : "sets"}` : ""}`
+                : "Add what you did and how it went."}
+            </SheetDescription>
+          </div>
+        </SheetHeader>
 
         <datalist id={datalistId}>
           {knownExercises.map((ex) => (
@@ -244,12 +283,13 @@ export function LogWorkoutDialog({
           }}
         />
 
-        <div className="grid gap-4">
+        <SheetBody className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label htmlFor="workout-name">Name</Label>
               <Input
                 id="workout-name"
+                className="h-11"
                 placeholder="e.g. Push day, 5k run"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -259,6 +299,7 @@ export function LogWorkoutDialog({
               <Label htmlFor="workout-date">Date</Label>
               <Input
                 id="workout-date"
+                className="h-11"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -266,52 +307,70 @@ export function LogWorkoutDialog({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid gap-2">
-              <Label>Type</Label>
-              <Select
-                value={type}
-                onValueChange={(v) => setType(v as WorkoutType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORKOUT_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="workout-duration">Duration (min)</Label>
+          <div className="grid gap-2">
+            <Label>Type</Label>
+            <SegmentedControl
+              value={type}
+              onChange={setType}
+              options={TYPE_OPTIONS.map((t) => ({
+                value: t.value,
+                label: t.label,
+                icon: t.icon,
+              }))}
+              className="grid-cols-5"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Duration</Label>
+            <div className="flex flex-wrap gap-2">
+              {DURATION_PRESETS.map((mins) => (
+                <Button
+                  key={mins}
+                  type="button"
+                  variant={
+                    duration === String(mins) ? "default" : "outline"
+                  }
+                  className="h-10 rounded-full px-4"
+                  onClick={() =>
+                    setDuration(duration === String(mins) ? "" : String(mins))
+                  }
+                >
+                  {mins} min
+                </Button>
+              ))}
               <Input
-                id="workout-duration"
                 type="number"
+                inputMode="numeric"
                 min="0"
-                placeholder="45"
-                value={duration}
+                placeholder="Custom"
+                aria-label="Custom duration in minutes"
+                value={
+                  DURATION_PRESETS.includes(Number(duration)) ? "" : duration
+                }
                 onChange={(e) => setDuration(e.target.value)}
+                className="h-10 w-24 min-w-0 rounded-full text-center"
               />
             </div>
           </div>
 
           <div className="grid gap-3">
             <Label>Exercises</Label>
-            {exercises.map((ex) => {
+            {exercises.map((ex, exIndex) => {
               const last = ex.name.trim()
                 ? lastSessionFor(historyWorkouts, ex.name)
                 : null
               const info = ex.name.trim() ? classifyExercise(ex.name) : null
               return (
-                <div key={ex.id} className="rounded-lg border p-3">
+                <div
+                  key={ex.id}
+                  className="rounded-xl border bg-card p-3 shadow-sm"
+                >
                   <div className="flex items-center gap-2">
                     <Input
-                      className="min-w-0"
+                      className="h-11 min-w-0 font-medium"
                       list={datalistId}
-                      placeholder="Exercise name, e.g. Bench press"
+                      placeholder={`Exercise ${exIndex + 1}`}
                       value={ex.name}
                       onChange={(e) =>
                         updateExercise(ex.id, { name: e.target.value })
@@ -320,6 +379,7 @@ export function LogWorkoutDialog({
                     <Button
                       variant="outline"
                       size="icon"
+                      className="h-11 w-11 shrink-0"
                       onClick={() => setPickerFor(ex.id)}
                       aria-label="Browse exercise catalogue"
                     >
@@ -328,10 +388,13 @@ export function LogWorkoutDialog({
                     <Button
                       variant="ghost"
                       size="icon"
+                      className="h-11 w-11 shrink-0 text-muted-foreground"
                       onClick={() =>
-                        setExercises((prev) => prev.filter((e) => e.id !== ex.id))
+                        setExercises((prev) =>
+                          prev.filter((e) => e.id !== ex.id)
+                        )
                       }
-                      aria-label="Remove exercise"
+                      aria-label={`Remove ${ex.name.trim() || `exercise ${exIndex + 1}`}`}
                     >
                       <Trash2 />
                     </Button>
@@ -340,12 +403,16 @@ export function LogWorkoutDialog({
                   {info?.known && info.primary.length > 0 && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       {info.primary.map((m) => (
-                        <Badge key={m} variant="secondary" className="text-[10px]">
+                        <Badge key={m} className="text-[10px]">
                           {muscleLabel(m)}
                         </Badge>
                       ))}
                       {info.secondary.map((m) => (
-                        <Badge key={m} variant="outline" className="text-[10px]">
+                        <Badge
+                          key={m}
+                          variant="secondary"
+                          className="text-[10px]"
+                        >
                           {muscleLabel(m)}
                         </Badge>
                       ))}
@@ -353,23 +420,33 @@ export function LogWorkoutDialog({
                   )}
 
                   {last && (
-                    <div className="mt-2 rounded-md bg-muted/60 p-2 text-xs">
-                      <p className="flex items-center gap-1.5 text-muted-foreground">
-                        <History className="h-3 w-3" />
-                        Last time:{" "}
-                        {last.sets
-                          .map((s) =>
-                            s.weight > 0
-                              ? `${s.reps}×${s.weight}kg`
-                              : `${s.reps} reps`
-                          )
-                          .join(", ")}
-                      </p>
-                      <p className="mt-1 font-medium">{last.suggestion}</p>
+                    <div className="mt-3 flex gap-2 rounded-lg bg-muted px-3 py-2 text-xs">
+                      <History className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0">
+                        <p className="text-muted-foreground">
+                          Last time:{" "}
+                          <span className="tabular">
+                            {last.sets
+                              .map((s) =>
+                                s.weight > 0
+                                  ? `${s.reps}×${s.weight}kg`
+                                  : `${s.reps} reps`
+                              )
+                              .join(", ")}
+                          </span>
+                        </p>
+                        <p className="mt-0.5 font-semibold">{last.suggestion}</p>
+                      </div>
                     </div>
                   )}
 
-                  <div className="mt-2 grid gap-2">
+                  <div className="mt-3 space-y-2">
+                    {ex.sets.length > 0 && (
+                      <div className="flex items-center gap-2 pl-9 pr-9 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span className="flex-1 text-center">Reps</span>
+                        <span className="flex-1 text-center">Weight (kg)</span>
+                      </div>
+                    )}
                     {ex.sets.map((set, i) => {
                       const parsed = {
                         reps: Number(set.reps) || 0,
@@ -381,55 +458,59 @@ export function LogWorkoutDialog({
                           : false
                       return (
                         <div key={i} className="flex items-center gap-2">
-                          <span className="w-12 shrink-0 text-xs text-muted-foreground">
-                            Set {i + 1}
+                          <span className="w-7 shrink-0 text-xs font-semibold text-muted-foreground tabular">
+                            {i + 1}
                           </span>
-                          {/* min-w-0 lets these shrink below an input's
-                              intrinsic width — without it the row can't fit a
-                              phone and pushes the page sideways. */}
-                          <Input
-                            className="min-w-0"
-                            type="number"
-                            min="0"
-                            placeholder="Reps"
+                          <Stepper
                             value={set.reps}
-                            onChange={(e) =>
-                              updateSet(ex.id, i, "reps", e.target.value)
-                            }
+                            onChange={(v) => updateSet(ex.id, i, "reps", v)}
+                            aria-label={`set ${i + 1} reps`}
                           />
-                          <Input
-                            className="min-w-0"
-                            type="number"
-                            min="0"
-                            step="0.5"
-                            placeholder="Weight (kg)"
+                          <Stepper
                             value={set.weight}
-                            onChange={(e) =>
-                              updateSet(ex.id, i, "weight", e.target.value)
-                            }
+                            step={2.5}
+                            onChange={(v) => updateSet(ex.id, i, "weight", v)}
+                            aria-label={`set ${i + 1} weight`}
                           />
-                          <span className="w-8 shrink-0">
-                            {pr && (
+                          <span className="flex w-7 shrink-0 justify-center">
+                            {pr ? (
                               <span
-                                className="flex items-center gap-1 text-xs font-medium text-status-good"
+                                className="text-status-good"
                                 title="New personal record"
                               >
-                                <Trophy className="h-3 w-3" />
+                                <Trophy className="h-4 w-4" />
                                 <span className="sr-only">
                                   New personal record
                                 </span>
                               </span>
-                            )}
+                            ) : ex.sets.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => removeSet(ex.id, i)}
+                                className="text-muted-foreground/50 transition-colors hover:text-destructive"
+                                aria-label={`Remove set ${i + 1}`}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
                           </span>
                         </div>
                       )
                     })}
                     <Button
-                      variant="outline"
-                      size="sm"
+                      variant="ghost"
+                      className="h-10 w-full justify-center border border-dashed text-muted-foreground"
                       onClick={() =>
                         updateExercise(ex.id, {
-                          sets: [...ex.sets, { reps: "", weight: "" }],
+                          sets: [
+                            ...ex.sets,
+                            // Carry the last set's numbers forward — you
+                            // usually repeat them, and correcting is quicker
+                            // than typing both again.
+                            ex.sets.length > 0
+                              ? { ...ex.sets[ex.sets.length - 1] }
+                              : { reps: "", weight: "" },
+                          ],
                         })
                       }
                     >
@@ -440,8 +521,8 @@ export function LogWorkoutDialog({
               )
             })}
             <Button
-              variant="secondary"
-              size="sm"
+              variant="outline"
+              className="h-11 w-full"
               onClick={() => setExercises((prev) => [...prev, emptyExercise()])}
             >
               <Plus /> Add exercise
@@ -459,7 +540,7 @@ export function LogWorkoutDialog({
           </div>
 
           {!template && !editing && (
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label className="flex cursor-pointer items-center gap-2.5 rounded-lg border bg-card p-3 text-sm">
               <input
                 type="checkbox"
                 className="h-4 w-4 rounded border-input accent-primary"
@@ -467,14 +548,15 @@ export function LogWorkoutDialog({
                 onChange={(e) => setSaveAsTemplate(e.target.checked)}
               />
               <Bookmark className="h-4 w-4 text-muted-foreground" />
-              Also save this as a reusable template
+              Save as a reusable template
             </label>
           )}
-        </div>
+        </SheetBody>
 
-        <DialogFooter>
+        <SheetFooter>
           <Button
             variant="outline"
+            className="h-12 flex-1"
             onClick={() => {
               resetForm()
               onOpenChange(false)
@@ -482,11 +564,15 @@ export function LogWorkoutDialog({
           >
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || !date}>
+          <Button
+            className="h-12 flex-1"
+            onClick={handleSave}
+            disabled={!name.trim() || !date}
+          >
             {editing ? "Save changes" : "Save workout"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   )
 }

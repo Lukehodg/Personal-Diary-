@@ -1,12 +1,17 @@
 import {
   Activity,
+  AlertTriangle,
   BookOpen,
   CalendarArrowDown,
+  CheckCircle2,
   Dumbbell,
   Flame,
   Heart,
   Route,
   Timer,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
 } from "lucide-react"
 
 import {
@@ -20,8 +25,32 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { downloadICS } from "@/lib/calendar"
+import { personalRecords, trainingLoad, type LoadZone } from "@/lib/analytics"
 import { formatDate, todayISO } from "@/lib/store"
 import { MOODS, type DiaryEntry, type Workout } from "@/lib/types"
+
+/** Mirrors the Insights tab so the same signal reads the same in both places. */
+const ZONE_STYLE: Record<
+  LoadZone,
+  { color: string; icon: typeof CheckCircle2; label: string }
+> = {
+  detraining: {
+    color: "text-muted-foreground",
+    icon: TrendingDown,
+    label: "Detraining",
+  },
+  optimal: { color: "text-status-good", icon: CheckCircle2, label: "Optimal" },
+  caution: {
+    color: "text-status-warning",
+    icon: AlertTriangle,
+    label: "Caution",
+  },
+  "high risk": {
+    color: "text-status-critical",
+    icon: AlertTriangle,
+    label: "High risk",
+  },
+}
 
 const WEEKLY_GOAL = 4
 
@@ -138,24 +167,82 @@ export function Dashboard({ workouts, entries }: DashboardProps) {
     count: thisWeek.filter((w) => w.type === type).length,
   }))
 
+  // Pulled through from Insights so the headline signals are on the home
+  // screen, where you'll actually see them.
+  const load = trainingLoad(workouts)
+  const zone = ZONE_STYLE[load.zone]
+  const ZoneIcon = zone.icon
+  const topPR = personalRecords(workouts)[0]
+
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+          <Card key={stat.title} className="p-4">
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-xs font-medium leading-tight text-muted-foreground">
                 {stat.title}
-              </CardTitle>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.sub}</p>
-            </CardContent>
+              </p>
+              <stat.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </div>
+            <div className="mt-2 text-2xl font-bold tracking-tight tabular">
+              {stat.value}
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">{stat.sub}</p>
           </Card>
         ))}
       </div>
+
+      {(load.hasEnoughData || topPR) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {load.hasEnoughData && (
+            <Card className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Training load
+                </p>
+                <span
+                  className={`flex items-center gap-1 text-xs font-semibold ${zone.color}`}
+                >
+                  <ZoneIcon className="h-3.5 w-3.5" />
+                  {zone.label}
+                </span>
+              </div>
+              <div className="mt-2 text-2xl font-bold tracking-tight tabular">
+                {load.ratio.toFixed(2)}
+              </div>
+              <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                {load.message}
+              </p>
+            </Card>
+          )}
+
+          {topPR && (
+            <Card className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate text-xs font-medium text-muted-foreground">
+                  Best lift · {topPR.name}
+                </p>
+                <Trophy className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </div>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-2xl font-bold tracking-tight tabular">
+                  {topPR.bestE1rm} kg
+                </span>
+                {topPR.progressPct > 0 && (
+                  <span className="flex items-center gap-0.5 text-xs font-semibold text-status-good">
+                    <TrendingUp className="h-3 w-3" />+{topPR.progressPct}%
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground tabular">
+                {topPR.bestSet.reps} × {topPR.bestSet.weight} kg ·{" "}
+                {formatDate(topPR.bestDate)}
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-7">
         <Card className="lg:col-span-3">

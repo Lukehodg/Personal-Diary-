@@ -522,7 +522,7 @@ export function Measurements({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-9 w-9"
                                 onClick={() => {
                                   setEditingEntry(entry)
                                   setEntryOpen(true)
@@ -534,7 +534,7 @@ export function Measurements({
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7"
+                                className="h-9 w-9"
                                 onClick={() => onDeleteEntry(entry.id)}
                                 aria-label="Delete reading"
                               >
