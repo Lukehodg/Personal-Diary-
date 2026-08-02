@@ -170,38 +170,92 @@ Installing needs the app served over HTTPS, so deploy it first.
 
 ### As a native iOS app
 
-> **Needs macOS.** Xcode is Mac-only, so `npm run ios` cannot work on Windows
-> or Linux — it ends in `cap open ios`, which has nothing to open. Without a
-> Mac the options are a borrowed or rented one, or building on GitHub Actions'
-> macOS runners and installing through TestFlight. An Apple Developer account
-> alone isn't enough; it's the hardware that's the constraint.
-
 [Capacitor](https://capacitorjs.com) wraps the same build in a real iOS app.
 Worth it for two reasons: the data lives in the app's own container rather
 than in Safari's storage, which iOS is far more willing to reclaim; and it's
 the only route to HealthKit, since Apple Health has no web API.
 
-Requires a Mac with Xcode and an Apple Developer account. Capacitor 8 uses
-Swift Package Manager, so there's no CocoaPods step.
+Building an iOS app requires macOS — Xcode is Mac-only. There are two routes.
+
+#### With a Mac
+
+Capacitor 8 uses Swift Package Manager, so there's no CocoaPods step.
 
 ```bash
-npm run ios     # build, copy into the iOS project, open Xcode
+npm run ios       # build, copy into the iOS project, open Xcode
+npm run ios:sync  # same without opening Xcode
 ```
 
-Then in Xcode: select your device, set your signing team under
+In Xcode: select your device, set your signing team under
 **Signing & Capabilities**, and hit Run. With a paid developer account the
 install lasts a year; a free Apple ID expires after seven days.
 
-`npm run ios:sync` does the same without opening Xcode — run it after any web
-change to copy the new build across.
+#### Without a Mac — GitHub Actions to TestFlight
 
-The `ios/` project is committed, but the copied web assets
-(`ios/App/App/public`) and generated config are gitignored, since `cap sync`
-regenerates them from `dist/`.
+`.github/workflows/ios-testflight.yml` builds and signs on a macOS runner and
+uploads to TestFlight, so you install from the TestFlight app on your phone.
+Run it by hand from the **Actions** tab (it isn't on push, because macOS
+runners bill at 10× minutes).
+
+**One-time setup.** All of it is doable from a Windows machine.
+
+1. **Create the app record.** In
+   [App Store Connect](https://appstoreconnect.apple.com) → **Apps** → **+** →
+   **New App**. Platform iOS, bundle ID `com.lukehodg.workoutdiary` (register
+   it first under **Certificates, Identifiers & Profiles → Identifiers** if it
+   isn't in the dropdown), and any SKU.
+
+2. **Create an API key.** App Store Connect → **Users and Access** →
+   **Integrations** → **App Store Connect API** → **+**. Give it the
+   **App Manager** role. Download the `.p8` file — Apple only lets you
+   download it once. Note the **Key ID** and the **Issuer ID** shown on that
+   page.
+
+3. **Find your Team ID.** Top right of the
+   [Apple Developer](https://developer.apple.com/account) account page, or
+   under Membership details. Ten characters, like `A1B2C3D4E5`.
+
+4. **Add four repository secrets**, under **Settings → Secrets and variables →
+   Actions** in GitHub:
+
+   | Secret | Value |
+   | --- | --- |
+   | `ASC_KEY_ID` | the Key ID from step 2 |
+   | `ASC_ISSUER_ID` | the Issuer ID from step 2 |
+   | `ASC_PRIVATE_KEY` | the entire contents of the `.p8` file, including the `BEGIN`/`END` lines |
+   | `APPLE_TEAM_ID` | the Team ID from step 3 |
+
+5. **Run the workflow.** Actions → **iOS TestFlight** → **Run workflow**.
+
+Once it finishes, the build appears in App Store Connect under **TestFlight**
+after a few minutes of processing. Add yourself as an internal tester, install
+[TestFlight](https://apps.apple.com/app/testflight/id899247664) on your phone,
+and the app shows up there.
+
+Internal TestFlight testing doesn't go through App Review. That matters,
+because Apple routinely rejects thin web wrappers from the public App Store
+under Guideline 4.2 — fine for personal use, but the front door isn't open.
+
+Signing uses automatic provisioning driven by the API key, so no certificates
+or provisioning profiles are stored in the repository. The workflow deletes
+the key from the runner when it finishes, and keeps the built `.ipa` as an
+artifact for 14 days.
+
+**Cost.** macOS runners bill at 10× minutes, so a private repository's free
+tier is roughly 15–20 builds a month. A public repository has free minutes.
+
+#### Project notes
+
+The `ios/` project is committed, including the shared Xcode scheme that CI
+needs. The copied web assets (`ios/App/App/public`) and generated config are
+gitignored, since `cap sync` regenerates them from `dist/`.
 
 **The bundle identifier is `com.lukehodg.workoutdiary`**, set in
-`capacitor.config.ts`. Change it there if you'd rather use a different one,
-then re-run `npm run ios:sync`.
+`capacitor.config.ts` and in the Xcode project. Change it in both if you'd
+rather use a different one.
+
+The build number is set from the GitHub run number, because TestFlight
+rejects a build number it has already accepted.
 
 ## Deploying
 

@@ -1,0 +1,131 @@
+name: iOS TestFlight
+
+# Builds the iOS app on a macOS runner and uploads it to TestFlight, so the
+# app can be installed on a phone without owning a Mac.
+#
+# Triggered by hand — macOS runners bill at 10x minutes, so this deliberately
+# does not run on every push.
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: "What's in this build (shown in TestFlight)"
+        required: false
+        default: "Latest changes from main"
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    env:
+      # Must match PRODUCT_BUNDLE_IDENTIFIER in the Xcode project and the app
+      # record in App Store Connect.
+      BUNDLE_ID: com.lukehodg.workoutdiary
+      SCHEME: App
+      PROJECT: ios/App/App.xcodeproj
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Build the web app
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy the build into the iOS project
+        run: npx cap sync ios
+
+      - name: Install the App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          if [ -z "$ASC_KEY_ID" ] || [ -z "$ASC_ISSUER_ID" ] || [ -z "$ASC_PRIVATE_KEY" ]; then
+            echo "::error::Missing App Store Connect secrets. See the iOS section of the README."
+            exit 1
+          fi
+          mkdir -p ~/private_keys
+          # The secret holds the .p8 file's contents verbatim.
+          printf '%s' "$ASC_PRIVATE_KEY" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Set the build number
+        # TestFlight rejects a build number it has already seen, so use the
+        # run number, which only ever goes up.
+        run: |
+          /usr/libexec/PlistBuddy -c "Print" ios/App/App/Info.plist > /dev/null
+          cd ios/App
+          xcrun agvtool new-version -all ${{ github.run_number }}
+
+      - name: Archive
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic
+
+      - name: Export the IPA
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # teamID isn't in the committed plist, so inject it here rather than
+          # keeping the team identifier in the repository.
+          /usr/libexec/PlistBuddy -c "Add :teamID string $TEAM_ID" ios/ExportOptions.plist
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          IPA=$(find "$RUNNER_TEMP/export" -name '*.ipa' | head -1)
+          echo "Uploading $IPA"
+          # altool looks for keys in these directories by convention.
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 ~/.appstoreconnect/private_keys/
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Keep the IPA as an artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-${{ github.run_number }}
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -rf ~/private_keys ~/.appstoreconnect/private_keys
