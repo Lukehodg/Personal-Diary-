@@ -88,8 +88,12 @@ export function HealthScoreCard({
       }
       const { steps, activities } = await fetchRecent(30)
       onSync({ steps, activities, syncedAt: new Date().toISOString() })
-    } catch {
-      setError("Couldn't reach Apple Health — try again in a moment.")
+    } catch (err) {
+      // Surfaced verbatim (rather than a friendly generic message) while
+      // this integration is still being diagnosed against a real device.
+      const detail =
+        err instanceof Error ? err.message : String(err)
+      setError(`Couldn't reach Apple Health: ${detail}`)
     } finally {
       setSyncing(false)
     }
