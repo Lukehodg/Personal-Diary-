@@ -24,6 +24,10 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Workout Diary reads your steps, workouts, and heart rate from Health to fill in your health score.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Workout Diary doesn't write any data back to Health.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

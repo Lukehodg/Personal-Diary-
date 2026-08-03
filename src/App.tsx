@@ -12,6 +12,7 @@ import {
 import { BackupDialog } from "@/components/BackupDialog"
 import { Dashboard } from "@/components/Dashboard"
 import { Diary } from "@/components/Diary"
+import { EMPTY_HEALTHKIT_SYNC, type HealthKitSync } from "@/components/HealthScoreCard"
 import { Insights } from "@/components/Insights"
 import { Measurements } from "@/components/Measurements"
 import { Workouts } from "@/components/Workouts"
@@ -52,6 +53,10 @@ export default function App() {
   const [measurements, setMeasurements] = useLocalStorage<MeasurementEntry[]>(
     "measurements",
     []
+  )
+  const [healthKit, setHealthKit] = useLocalStorage<HealthKitSync>(
+    "healthkit-sync",
+    EMPTY_HEALTHKIT_SYNC
   )
   // Dark is the app's intended look, so it's the default rather than an
   // opt-in. An existing preference still wins.
@@ -136,7 +141,14 @@ export default function App() {
 
         <main className="mx-auto w-full max-w-5xl px-4 py-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] lg:pb-8">
           <TabsContent value="dashboard">
-            <Dashboard workouts={workouts} entries={entries} />
+            <Dashboard
+              workouts={workouts}
+              entries={entries}
+              measurements={measurements}
+              measurementCategories={measurementCategories}
+              healthKit={healthKit}
+              onSyncHealthKit={setHealthKit}
+            />
           </TabsContent>
 
           <TabsContent value="workouts">

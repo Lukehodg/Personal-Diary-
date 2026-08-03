@@ -24,10 +24,20 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import {
+  HealthScoreCard,
+  type HealthKitSync,
+} from "@/components/HealthScoreCard"
 import { downloadICS } from "@/lib/calendar"
 import { personalRecords, trainingLoad, type LoadZone } from "@/lib/analytics"
 import { formatDate, todayISO } from "@/lib/store"
-import { MOODS, type DiaryEntry, type Workout } from "@/lib/types"
+import {
+  MOODS,
+  type DiaryEntry,
+  type MeasurementCategory,
+  type MeasurementEntry,
+  type Workout,
+} from "@/lib/types"
 
 /** Mirrors the Insights tab so the same signal reads the same in both places. */
 const ZONE_STYLE: Record<
@@ -87,9 +97,20 @@ function currentStreak(workouts: Workout[]): number {
 interface DashboardProps {
   workouts: Workout[]
   entries: DiaryEntry[]
+  measurements: MeasurementEntry[]
+  measurementCategories: MeasurementCategory[]
+  healthKit: HealthKitSync
+  onSyncHealthKit: (sync: HealthKitSync) => void
 }
 
-export function Dashboard({ workouts, entries }: DashboardProps) {
+export function Dashboard({
+  workouts,
+  entries,
+  measurements,
+  measurementCategories,
+  healthKit,
+  onSyncHealthKit,
+}: DashboardProps) {
   const weekStart = startOfWeekISO()
   const thisWeek = workouts.filter((w) => w.date >= weekStart)
   const minutesThisWeek = thisWeek.reduce((sum, w) => sum + w.durationMin, 0)
@@ -243,6 +264,14 @@ export function Dashboard({ workouts, entries }: DashboardProps) {
           )}
         </div>
       )}
+
+      <HealthScoreCard
+        workouts={workouts}
+        measurements={measurements}
+        measurementCategories={measurementCategories}
+        healthKit={healthKit}
+        onSync={onSyncHealthKit}
+      />
 
       <div className="grid gap-4 lg:grid-cols-7">
         <Card className="lg:col-span-3">
