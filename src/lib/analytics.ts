@@ -24,6 +24,20 @@ export function daysAgoISO(days: number): string {
   return isoOf(d)
 }
 
+export function addDaysISO(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00`)
+  d.setDate(d.getDate() + days)
+  return isoOf(d)
+}
+
+/** The Monday that starts the week containing `date` (defaults to today). */
+export function startOfWeekISO(date: string = todayISO()): string {
+  const d = new Date(`${date}T00:00:00`)
+  const day = d.getDay() // 0 = Sunday
+  const diff = day === 0 ? 6 : day - 1
+  return addDaysISO(date, -diff)
+}
+
 /* ------------------------------------------------------------------ */
 /* Personal records                                                    */
 /* ------------------------------------------------------------------ */

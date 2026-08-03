@@ -25,6 +25,7 @@ import {
   type DiaryEntry,
   type MeasurementCategory,
   type MeasurementEntry,
+  type PlannedWorkout,
   type Workout,
   type WorkoutTemplate,
 } from "@/lib/types"
@@ -54,6 +55,9 @@ export default function App() {
     "measurements",
     []
   )
+  const [plannedWorkouts, setPlannedWorkouts] = useLocalStorage<
+    PlannedWorkout[]
+  >("planned-workouts", [])
   const [healthKit, setHealthKit] = useLocalStorage<HealthKitSync>(
     "healthkit-sync",
     EMPTY_HEALTHKIT_SYNC
@@ -68,6 +72,7 @@ export default function App() {
     templates,
     measurementCategories,
     measurements,
+    plannedWorkouts,
   }
 
   /** Replace the item sharing this id, or append it if it's new. */
@@ -125,6 +130,7 @@ export default function App() {
                   setTemplates(data.templates)
                   setMeasurementCategories(data.measurementCategories)
                   setMeasurements(data.measurements)
+                  setPlannedWorkouts(data.plannedWorkouts)
                 }}
               />
               <Button
@@ -155,6 +161,7 @@ export default function App() {
             <Workouts
               workouts={workouts}
               templates={templates}
+              plannedWorkouts={plannedWorkouts}
               onSave={(w) => setWorkouts((prev) => upsert(prev, w))}
               onImport={(imported) =>
                 setWorkouts((prev) => [...prev, ...imported])
@@ -165,6 +172,12 @@ export default function App() {
               onSaveTemplate={(t) => setTemplates((prev) => [...prev, t])}
               onDeleteTemplate={(id) =>
                 setTemplates((prev) => prev.filter((t) => t.id !== id))
+              }
+              onSavePlanned={(p) =>
+                setPlannedWorkouts((prev) => upsert(prev, p))
+              }
+              onDeletePlanned={(id) =>
+                setPlannedWorkouts((prev) => prev.filter((p) => p.id !== id))
               }
             />
           </TabsContent>

@@ -51,6 +51,19 @@ export interface WorkoutTemplate {
   name: string
   type: WorkoutType
   exerciseNames: string[]
+  /** Prescribed sets/reps per exercise, e.g. "4 x 5-8". Keyed by exercise name. */
+  exerciseTargets?: Record<string, string>
+}
+
+/** A session assigned to a specific date but not yet logged — the week planner's unit. */
+export interface PlannedWorkout {
+  id: string
+  date: string // ISO yyyy-mm-dd
+  name: string
+  type: WorkoutType
+  exerciseNames: string[]
+  exerciseTargets?: Record<string, string>
+  notes?: string
 }
 
 /**

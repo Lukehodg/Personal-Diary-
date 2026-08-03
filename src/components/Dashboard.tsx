@@ -29,7 +29,12 @@ import {
   type HealthKitSync,
 } from "@/components/HealthScoreCard"
 import { downloadICS } from "@/lib/calendar"
-import { personalRecords, trainingLoad, type LoadZone } from "@/lib/analytics"
+import {
+  personalRecords,
+  startOfWeekISO,
+  trainingLoad,
+  type LoadZone,
+} from "@/lib/analytics"
 import { formatDate, todayISO } from "@/lib/store"
 import {
   MOODS,
@@ -63,16 +68,6 @@ const ZONE_STYLE: Record<
 }
 
 const WEEKLY_GOAL = 4
-
-function startOfWeekISO(): string {
-  const now = new Date()
-  const day = now.getDay() // 0 = Sunday
-  const diff = day === 0 ? 6 : day - 1 // week starts Monday
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - diff)
-  const offset = monday.getTimezoneOffset()
-  return new Date(monday.getTime() - offset * 60_000).toISOString().slice(0, 10)
-}
 
 function currentStreak(workouts: Workout[]): number {
   const days = new Set(workouts.map((w) => w.date))

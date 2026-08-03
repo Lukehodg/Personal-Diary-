@@ -41,6 +41,14 @@ import {
   type WorkoutType,
 } from "@/lib/types"
 
+/** What a saved template and a planned session have in common — enough to prefill the form. */
+export interface WorkoutBlueprint {
+  name: string
+  type: WorkoutType
+  exerciseNames: string[]
+  exerciseTargets?: Record<string, string>
+}
+
 const TYPE_OPTIONS: {
   value: WorkoutType
   label: string
@@ -87,7 +95,9 @@ interface LogWorkoutDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   workouts: Workout[]
-  template: WorkoutTemplate | null
+  template: WorkoutBlueprint | null
+  /** Overrides today's date when prefilling from `template` — used when starting a planned session for a date other than today. */
+  initialDate?: string
   /** Set to edit an existing workout in place; null logs a new one. */
   editing: Workout | null
   onSave: (workout: Workout) => void
@@ -99,6 +109,7 @@ export function LogWorkoutDialog({
   onOpenChange,
   workouts,
   template,
+  initialDate,
   editing,
   onSave,
   onSaveTemplate,
@@ -145,6 +156,7 @@ export function LogWorkoutDialog({
       setExercises(toDrafts(editing))
     } else if (template) {
       setName(template.name)
+      setDate(initialDate ?? todayISO())
       setType(template.type)
       setExercises(
         template.exerciseNames.length > 0
@@ -155,7 +167,7 @@ export function LogWorkoutDialog({
       resetForm()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, template, editing])
+  }, [open, template, initialDate, editing])
 
   const updateExercise = (id: string, patch: Partial<ExerciseDraft>) => {
     setExercises((prev) =>
@@ -361,6 +373,7 @@ export function LogWorkoutDialog({
                 ? lastSessionFor(historyWorkouts, ex.name)
                 : null
               const info = ex.name.trim() ? classifyExercise(ex.name) : null
+              const target = template?.exerciseTargets?.[ex.name]
               return (
                 <div
                   key={ex.id}
@@ -399,6 +412,12 @@ export function LogWorkoutDialog({
                       <Trash2 />
                     </Button>
                   </div>
+
+                  {target && (
+                    <p className="mt-2 text-xs font-medium text-muted-foreground">
+                      Target: {target}
+                    </p>
+                  )}
 
                   {info?.known && info.primary.length > 0 && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">

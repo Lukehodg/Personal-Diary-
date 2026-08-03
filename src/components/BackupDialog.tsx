@@ -36,6 +36,7 @@ function describeAdded(added: ImportCounts): string {
     [added.templates, "template"],
     [added.measurementCategories, "measurement category", "measurement categories"],
     [added.measurements, "measurement"],
+    [added.plannedWorkouts, "planned session"],
   ] as const
 
   const phrases = parts
@@ -76,7 +77,8 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
     data.entries.length === 0 &&
     data.templates.length === 0 &&
     data.measurementCategories.length === 0 &&
-    data.measurements.length === 0
+    data.measurements.length === 0 &&
+    data.plannedWorkouts.length === 0
 
   return (
     <Dialog
@@ -106,7 +108,8 @@ export function BackupDialog({ data, onRestore }: BackupDialogProps) {
             <p className="mt-1 text-sm text-muted-foreground">
               {data.workouts.length} workouts · {data.entries.length} diary
               entries · {data.templates.length} templates ·{" "}
-              {data.measurements.length} measurements
+              {data.measurements.length} measurements ·{" "}
+              {data.plannedWorkouts.length} planned
             </p>
             <Button
               className="mt-3 w-full"

@@ -2,9 +2,11 @@ import { useState } from "react"
 import {
   CalendarArrowDown,
   CalendarPlus,
+  CalendarRange,
   Dumbbell,
   Flame,
   Heart,
+  ListChecks,
   Pencil,
   Play,
   Plus,
@@ -22,22 +24,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { ImportGarminDialog } from "@/components/ImportGarminDialog"
-import { LogWorkoutDialog } from "@/components/LogWorkoutDialog"
+import {
+  LogWorkoutDialog,
+  type WorkoutBlueprint,
+} from "@/components/LogWorkoutDialog"
+import { Planner } from "@/components/Planner"
 import { RestTimer } from "@/components/RestTimer"
 import { downloadICS, googleCalendarUrl } from "@/lib/calendar"
 import { formatDate } from "@/lib/store"
-import type { Workout, WorkoutTemplate } from "@/lib/types"
+import type { PlannedWorkout, Workout, WorkoutTemplate } from "@/lib/types"
 
 interface WorkoutsProps {
   workouts: Workout[]
   templates: WorkoutTemplate[]
+  plannedWorkouts: PlannedWorkout[]
   /** Upsert: replaces the workout with a matching id, otherwise appends. */
   onSave: (workout: Workout) => void
   onImport: (workouts: Workout[]) => void
   onDelete: (id: string) => void
   onSaveTemplate: (template: WorkoutTemplate) => void
   onDeleteTemplate: (id: string) => void
+  onSavePlanned: (planned: PlannedWorkout) => void
+  onDeletePlanned: (id: string) => void
 }
 
 function hasStats(w: Workout): boolean {
@@ -53,32 +63,47 @@ function hasStats(w: Workout): boolean {
 export function Workouts({
   workouts,
   templates,
+  plannedWorkouts,
   onSave,
   onImport,
   onDelete,
   onSaveTemplate,
   onDeleteTemplate,
+  onSavePlanned,
+  onDeletePlanned,
 }: WorkoutsProps) {
+  const [view, setView] = useState<"log" | "plan">("log")
   const [open, setOpen] = useState(false)
-  const [activeTemplate, setActiveTemplate] = useState<WorkoutTemplate | null>(
+  const [activeTemplate, setActiveTemplate] = useState<WorkoutBlueprint | null>(
     null
   )
+  const [initialDate, setInitialDate] = useState<string | undefined>()
   const [editing, setEditing] = useState<Workout | null>(null)
 
   const openBlank = () => {
     setActiveTemplate(null)
+    setInitialDate(undefined)
     setEditing(null)
     setOpen(true)
   }
 
   const openFromTemplate = (template: WorkoutTemplate) => {
     setActiveTemplate(template)
+    setInitialDate(undefined)
+    setEditing(null)
+    setOpen(true)
+  }
+
+  const openFromPlanned = (planned: PlannedWorkout) => {
+    setActiveTemplate(planned)
+    setInitialDate(planned.date)
     setEditing(null)
     setOpen(true)
   }
 
   const openForEdit = (workout: Workout) => {
     setActiveTemplate(null)
+    setInitialDate(undefined)
     setEditing(workout)
     setOpen(true)
   }
@@ -95,20 +120,34 @@ export function Workouts({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <RestTimer />
-          <Button
-            variant="outline"
-            onClick={() => downloadICS(workouts)}
-            disabled={workouts.length === 0}
-          >
-            <CalendarArrowDown /> Export to calendar
-          </Button>
-          <ImportGarminDialog workouts={workouts} onImport={onImport} />
-          <Button onClick={openBlank}>
-            <Plus /> Log workout
-          </Button>
+          {view === "log" && (
+            <>
+              <RestTimer />
+              <Button
+                variant="outline"
+                onClick={() => downloadICS(workouts)}
+                disabled={workouts.length === 0}
+              >
+                <CalendarArrowDown /> Export to calendar
+              </Button>
+              <ImportGarminDialog workouts={workouts} onImport={onImport} />
+              <Button onClick={openBlank}>
+                <Plus /> Log workout
+              </Button>
+            </>
+          )}
         </div>
       </div>
+
+      <SegmentedControl
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "log", label: "Log", icon: <ListChecks className="h-4 w-4" /> },
+          { value: "plan", label: "Plan", icon: <CalendarRange className="h-4 w-4" /> },
+        ]}
+        className="grid-cols-2 sm:inline-grid sm:w-auto"
+      />
 
       <LogWorkoutDialog
         open={open}
@@ -118,11 +157,22 @@ export function Workouts({
         }}
         workouts={workouts}
         template={activeTemplate}
+        initialDate={initialDate}
         editing={editing}
         onSave={onSave}
         onSaveTemplate={onSaveTemplate}
       />
 
+      {view === "plan" ? (
+        <Planner
+          templates={templates}
+          planned={plannedWorkouts}
+          onSave={onSavePlanned}
+          onDelete={onDeletePlanned}
+          onStart={openFromPlanned}
+        />
+      ) : (
+        <>
       {templates.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
@@ -289,6 +339,8 @@ export function Workouts({
             </Card>
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   )

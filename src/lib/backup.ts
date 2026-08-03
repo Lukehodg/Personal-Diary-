@@ -3,11 +3,12 @@ import type {
   DiaryEntry,
   MeasurementCategory,
   MeasurementEntry,
+  PlannedWorkout,
   Workout,
   WorkoutTemplate,
 } from "@/lib/types"
 
-export const BACKUP_VERSION = 2
+export const BACKUP_VERSION = 3
 
 export interface BackupData {
   workouts: Workout[]
@@ -15,6 +16,7 @@ export interface BackupData {
   templates: WorkoutTemplate[]
   measurementCategories: MeasurementCategory[]
   measurements: MeasurementEntry[]
+  plannedWorkouts: PlannedWorkout[]
 }
 
 export interface BackupFile extends BackupData {
@@ -47,6 +49,7 @@ export interface ImportCounts {
   templates: number
   measurementCategories: number
   measurements: number
+  plannedWorkouts: number
 }
 
 export interface ImportResult {
@@ -63,7 +66,8 @@ export function totalOf(counts: ImportCounts): number {
     counts.entries +
     counts.templates +
     counts.measurementCategories +
-    counts.measurements
+    counts.measurements +
+    counts.plannedWorkouts
   )
 }
 
@@ -94,6 +98,17 @@ function validTemplate(value: unknown): value is WorkoutTemplate {
   return (
     isRecord(value) &&
     typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    Array.isArray(value.exerciseNames) &&
+    (value.exerciseTargets === undefined || isRecord(value.exerciseTargets))
+  )
+}
+
+function validPlannedWorkout(value: unknown): value is PlannedWorkout {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.date === "string" &&
     typeof value.name === "string" &&
     Array.isArray(value.exerciseNames)
   )
@@ -131,6 +146,7 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
     templates: 0,
     measurementCategories: 0,
     measurements: 0,
+    plannedWorkouts: 0,
   }
   let raw: unknown
   try {
@@ -178,12 +194,17 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
   const incomingMeasurements = Array.isArray(raw.measurements)
     ? raw.measurements.filter(validMeasurement)
     : []
+  // Planned workouts arrived in v3; older backups simply have none.
+  const incomingPlanned = Array.isArray(raw.plannedWorkouts)
+    ? raw.plannedWorkouts.filter(validPlannedWorkout)
+    : []
 
   const workoutIds = new Set(current.workouts.map((w) => w.id))
   const entryIds = new Set(current.entries.map((e) => e.id))
   const templateIds = new Set(current.templates.map((t) => t.id))
   const categoryIds = new Set(current.measurementCategories.map((c) => c.id))
   const measurementIds = new Set(current.measurements.map((m) => m.id))
+  const plannedIds = new Set(current.plannedWorkouts.map((p) => p.id))
 
   const newWorkouts = incomingWorkouts.filter((w) => !workoutIds.has(w.id))
   const newEntries = incomingEntries.filter((e) => !entryIds.has(e.id))
@@ -192,6 +213,7 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
   const newMeasurements = incomingMeasurements.filter(
     (m) => !measurementIds.has(m.id)
   )
+  const newPlanned = incomingPlanned.filter((p) => !plannedIds.has(p.id))
 
   return {
     ok: true,
@@ -204,6 +226,7 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
         ...newCategories,
       ],
       measurements: [...current.measurements, ...newMeasurements],
+      plannedWorkouts: [...current.plannedWorkouts, ...newPlanned],
     },
     added: {
       workouts: newWorkouts.length,
@@ -211,6 +234,7 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
       templates: newTemplates.length,
       measurementCategories: newCategories.length,
       measurements: newMeasurements.length,
+      plannedWorkouts: newPlanned.length,
     },
     skipped: {
       workouts: incomingWorkouts.length - newWorkouts.length,
@@ -219,6 +243,7 @@ export function parseBackup(text: string, current: BackupData): ImportResult {
       measurementCategories:
         incomingCategories.length - newCategories.length,
       measurements: incomingMeasurements.length - newMeasurements.length,
+      plannedWorkouts: incomingPlanned.length - newPlanned.length,
     },
   }
 }
