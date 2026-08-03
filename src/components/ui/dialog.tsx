@@ -4,7 +4,12 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const Dialog = DialogPrimitive.Root
+/** See the matching note in sheet.tsx — non-modal avoids a body-scroll-lock
+ * restore bug that leaves the whole page offset on iOS after the keyboard
+ * has opened while the dialog was up. */
+function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root modal={false} {...props} />
+}
 const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
 const DialogClose = DialogPrimitive.Close

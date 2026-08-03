@@ -4,7 +4,18 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const Sheet = DialogPrimitive.Root
+/**
+ * Non-modal: Radix's modal mode locks body scroll by setting it to
+ * position: fixed with a saved scroll offset, then restoring it on close.
+ * On iOS WKWebView that restore can land wrong if the keyboard opened while
+ * the sheet was up (the scroll/viewport metrics it depends on have shifted
+ * underneath it) — every screen ends up stuck offset until the app is
+ * force-quit. The overlay already blocks interaction with the background,
+ * so nothing but that lock/focus-trap is lost by turning modal off.
+ */
+function Sheet(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root modal={false} {...props} />
+}
 const SheetTrigger = DialogPrimitive.Trigger
 const SheetClose = DialogPrimitive.Close
 
